@@ -1,19 +1,19 @@
 all: average ssa
 
 ssa: ssa.o libspeckle.o
-	gfortran -o ssa ssa.o libspeckle.o -lblas -lcfitsio -llapack
+	gfortran -o ssa ssa.o libspeckle.o -llapack -lblas -lcfitsio
 
 average: average.o libspeckle.o
-	gfortran -o average average.o libspeckle.o -lblas -lcfitsio -llapack
+	gfortran -o average average.o libspeckle.o -llapack -lblas -lcfitsio
 
 libspeckle.o: libspeckle.f
-	gfortran -O5 -c -o libspeckle.o libspeckle.f
+	gfortran -O3 -c -o libspeckle.o libspeckle.f
 
 ssa.o: ssa.f
-	gfortran -O5 -c -o ssa.o ssa.f
+	gfortran -O3 -c -o ssa.o ssa.f
 
 average.o: average.f
-	gfortran -O5 -c -o average.o average.f
+	gfortran -O3 -c -o average.o average.f
 
 clean:
 	rm *.o

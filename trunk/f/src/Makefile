@@ -1,7 +1,7 @@
 all: average ssa
 
 ssa: ssa.o libspeckle.o
-	gfortran -o ssa ssa.o libspeckle.o -lblas -lcfitsio
+	gfortran -o ssa ssa.o libspeckle.o -lblas -lcfitsio -llapack
 
 average: average.o libspeckle.o
 	gfortran -o average average.o libspeckle.o -lblas -lcfitsio

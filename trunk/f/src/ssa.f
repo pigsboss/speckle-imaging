@@ -1,10 +1,11 @@
       PROGRAM MAIN
       INTEGER :: STATUS,UNIT,FPIXELS(3),LPIXELS(3),NAXES(3),NPIXELS
       CHARACTER :: INFILE*80,OUTFILE*80,AVGFILE*80,ARG*255
-      DOUBLE PRECISION, ALLOCATABLE :: ARRAY(:)
+      CHARACTER :: BASENAME*80,EXTNAME*80,BGFILE*80,CLNFILE*80
+      DOUBLE PRECISION, ALLOCATABLE :: AVG(:),IMG(:,:),BG(:,:),CLN(:)
       STATUS=0
       CALL GETARG(1,INFILE)
-      WRITE(*,*) 'INPUT: ',INFILE
+      WRITE(*,*) 'Input: ',INFILE
       CALL GETARG(2,ARG)
       READ(ARG,*) FPIXELS(1)
       CALL GETARG(3,ARG)
@@ -22,23 +23,43 @@
       NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
       NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
       NPIXELS=NAXES(1)*NAXES(2)
-      ALLOCATE(ARRAY(NPIXELS))
+      ALLOCATE(AVG(NPIXELS))
 
 C  Start the Simple shift-and-add routine.
-      PRINT *,'START AVERAGING ALL FRAMES...'
-      CALL AVERAGE(INFILE,FPIXELS,LPIXELS,ARRAY)
-      PRINT *,'DONE.'
+      PRINT *,'Start averaging all frames...'
+      CALL AVERAGE(INFILE,FPIXELS,LPIXELS,AVG)
+      PRINT *,'Done.'
 C     CALL SSAREC(INFILE,FPIXELS,LPIXELS,ARRAY)
-
-      WRITE(*,*) 'OUTPUT: ',OUTFILE
+      CALL RESOLVEPATH(INFILE,BASENAME,EXTNAME)
+      AVGFILE=TRIM(BASENAME) // '_AVG.FITS'
       FPIXELS(1)=1
       FPIXELS(2)=1
       FPIXELS(3)=1
       LPIXELS(1)=NAXES(1)
       LPIXELS(2)=NAXES(2)
       LPIXELS(3)=1
-      CALL WRITEIMAGE(OUTFILE,FPIXELS,LPIXELS,ARRAY)
-      DEALLOCATE(ARRAY)
+      CALL WRITEIMAGE(AVGFILE,FPIXELS,LPIXELS,AVG)
+      PRINT *,'Write the average frame to: ',AVGFILE
+      ALLOCATE(IMG(NAXES(1),NAXES(2)))
+      ALLOCATE(BG(NAXES(1),NAXES(2)))
+      IMG=RESHAPE(AVG,(/NAXES(1),NAXES(2)/))
+      PRINT *,'Start fitting the background of the average frame',
+     &  ' using 2nd polynomials.'
+      CALL BGFIT2P2(NAXES(1),NAXES(2),IMG,BG)
+      BGFILE=TRIM(BASENAME) // '_BG.FITS'
+      BG=RESHAPE(BG,(/NPIXELS,1/))
+      CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)
+      ALLOCATE(CLN(NPIXELS))
+      CLN=AVG
+      PRINT *,'Subtract the background from the average frame.'
+      CALL DAXPY(NPIXELS,-1.0,BG,1,CLN,1)
+      CLNFILE=TRIM(BASENAME) // '_CLEAN.FITS'
+      CALL WRITEIMAGE(CLNFILE,FPIXELS,LPIXELS,CLN)
+      PRINT *,'Write the clean frame to: ',CLNFILE
+      DEALLOCATE(IMG)
+      DEALLOCATE(CLN)
+      DEALLOCATE(BG)
+      DEALLOCATE(AVG)
       STOP
       END
 C **********************************************************************

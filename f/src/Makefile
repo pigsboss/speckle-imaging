@@ -1,12 +1,16 @@
 all: average ssa
 
 ssa: ssa.o readimage.o writeimage.o printerror.o deletefile.o
-	gfortran -o ssa ssa.o readimage.o writeimage.o printerror.o \
-	deletefile.o -lblas -lcfitsio
+	gfortran -o ssa ssa.o readimage.o writeimage.o printerror.o deletefile.o \
+	-lblas -lcfitsio
 
-average: average.o readimage.o writeimage.o printerror.o deletefile.o
-	gfortran -o average average.o readimage.o writeimage.o printerror.o \
-	deletefile.o -lblas -lcfitsio
+average: average_head.o average.o readimage.o writeimage.o printerror.o \
+	deletefile.o
+	gfortran -o average average_head.o average.o readimage.o writeimage.o \
+	printerror.o deletefile.o -lblas -lcfitsio
+
+average_head.o: average_head.f
+	gfortran -O3 -c -o average_head.o average_head.f
 
 ssa.o: ssa.f
 	gfortran -O3 -c -o ssa.o ssa.f
@@ -28,3 +32,7 @@ deletefile.o: deletefile.f
 
 clean:
 	rm *.o
+
+install:
+	cp average ../test/
+	cp ssa ../test/

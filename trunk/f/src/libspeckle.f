@@ -201,16 +201,13 @@ C  North edge:
       LDB=MAX(NSAMPLES,NPARAMS)
       LWORK=-1
       ALLOCATE(WORK(1))
-      CALL DGELS('T',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
      &  LWORK,INFO)
       LWORK=INT(WORK(1))
       DEALLOCATE(WORK)
       ALLOCATE(WORK(LWORK))
-      CALL DGELS('T',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
      &  LWORK,INFO)
-      DEALLOCATE(WORK)
-      DEALLOCATE(B)
-      DEALLOCATE(A)
       IF (INFO.GT.0)THEN
         PRINT *,'The least-squares solution could not be computed ',
      &    'because A does not have full rank.'
@@ -220,12 +217,23 @@ C  North edge:
         PRINT *,'The argument has illegal value: ',ABS(INFO)
         RETURN
       ENDIF
+      PRINT *,'Fitting result'
+      PRINT *,'=============='
+      PRINT *,'a_0: ',B(1)
+      PRINT *,'a_1: ',B(2)
+      PRINT *,'a_2: ',B(3)
+      PRINT *,'a_3: ',B(4)
+      PRINT *,'a_4: ',B(5)
+      PRINT *,'a_5: ',B(6)
       DO I=1,M
         DO J=1,N
           BG(I,J)=B(1)+B(2)*DBLE(J)+B(3)*DBLE(I)+B(4)*DBLE(J)*DBLE(J)
      &      +B(5)*DBLE(J)*DBLE(I)+B(6)*DBLE(I)*DBLE(I)
         ENDDO
       ENDDO
+      DEALLOCATE(WORK)
+      DEALLOCATE(B)
+      DEALLOCATE(A)
       RETURN
       ENDSUBROUTINE BGFIT2P2
 C ******************************************************************************

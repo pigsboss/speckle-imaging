@@ -47,12 +47,12 @@ C     CALL SSAREC(INFILE,FPIXELS,LPIXELS,ARRAY)
      &  ' using 2nd polynomials.'
       CALL BGFIT2P2(NAXES(1),NAXES(2),IMG,BG)
       BGFILE=TRIM(BASENAME) // '_BG.FITS'
-      BG=RESHAPE(BG,(/NPIXELS,1/))
       CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)
+      PRINT *,'Write the background to: ',BGFILE
       ALLOCATE(CLN(NPIXELS))
-      CLN=AVG
+      CALL DCOPY(NPIXELS,AVG,1,CLN,1)
       PRINT *,'Subtract the background from the average frame.'
-      CALL DAXPY(NPIXELS,-1.0,BG,1,CLN,1)
+      CALL DAXPY(NPIXELS,DBLE(-1),BG,1,CLN,1)
       CLNFILE=TRIM(BASENAME) // '_CLEAN.FITS'
       CALL WRITEIMAGE(CLNFILE,FPIXELS,LPIXELS,CLN)
       PRINT *,'Write the clean frame to: ',CLNFILE

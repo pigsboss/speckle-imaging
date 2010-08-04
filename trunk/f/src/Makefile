@@ -4,7 +4,7 @@ ssa: ssa.o libspeckle.o
 	gfortran -o ssa ssa.o libspeckle.o -lblas -lcfitsio
 
 average: average.o libspeckle.o
-	gfortran -o average average.o average.o libspeckle.o -lblas -lcfitsio
+	gfortran -o average average.o libspeckle.o -lblas -lcfitsio
 
 libspeckle.o: libspeckle.f
 	gfortran -O3 -c -o libspeckle.o libspeckle.f

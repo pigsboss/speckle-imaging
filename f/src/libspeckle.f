@@ -135,7 +135,7 @@ C ******************************************************************************
       RETURN
       ENDSUBROUTINE RESOLVEPATH
 C ******************************************************************************
-      SUBROUTINE BGFIT2P2(M,N,IMG,BG)
+      SUBROUTINE BGFIT2P2(M,N,D,IMG,BG)
 C  2-dimensional background fitting subroutine using 2nd polynomials.
 C
 C  Purpose
@@ -152,7 +152,7 @@ C  M is the number of rows of matrix IMG.
 C  N is the number of columns of matrix IMG.
 C  IMG is the matrix the background of which is to be fitted.
 C  BG is the output of this subroutine.
-      DOUBLE PRECISION :: IMG(M,*),BG(M,*)
+      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y,XC,YC,D
       INTEGER :: M,N,I,J,K
 C  Each row of A is vector (1, x, y, x^2, x*y, y^2) for a specific (x,y).
 C  B is (z_1, z_2, z_3, ..., z_n)'. The subscript of z denotes different
@@ -160,42 +160,32 @@ C  location.
       DOUBLE PRECISION, ALLOCATABLE :: A(:,:),B(:),WORK(:)
       INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
       NPARAMS=6
-C  Use the points on the 4 edges of IMG as fitting samples.
-      NSAMPLES=M*2+N*2-4
+      NSAMPLES=0
+      XC=0.5*(1+DBLE(N))
+      YC=0.5*(1+DBLE(M))
+      DO J=1,N
+        DO I=1,M
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            NSAMPLES=NSAMPLES+1
+          ENDIF
+        ENDDO
+      ENDDO
+      PRINT *,'NSAMPLES:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
-C  East edge:
-      J=N
       K=1
-      DO I=1,M
-        A(K,:)=(/DBLE(1),DBLE(J),DBLE(I),DBLE(J)*DBLE(J),
-     &    DBLE(J)*DBLE(I),DBLE(I)*DBLE(I)/)
-        B(K)=IMG(I,J)
-        K=K+1
-      ENDDO
-C  South edge:
-      I=N
-      DO J=1,N-1
-        A(K,:)=(/DBLE(1),DBLE(J),DBLE(I),DBLE(J)*DBLE(J),
-     &    DBLE(J)*DBLE(I),DBLE(I)*DBLE(I)/)
-        B(K)=IMG(I,J)
-        K=K+1
-      ENDDO
-C  West edge:
-      J=1
-      DO I=1,M-1
-        A(K,:)=(/DBLE(1),DBLE(J),DBLE(I),DBLE(J)*DBLE(J),
-     &    DBLE(J)*DBLE(I),DBLE(I)*DBLE(I)/)
-        B(K)=IMG(I,J)
-        K=K+1
-      ENDDO
-C  North edge:
-      I=1
-      DO J=2,N-1
-        A(K,:)=(/DBLE(1),DBLE(J),DBLE(I),DBLE(J)*DBLE(J),
-     &    DBLE(J)*DBLE(I),DBLE(I)*DBLE(I)/)
-        B(K)=IMG(I,J)
-        K=K+1
+      DO J=1,N
+        DO I=1,M
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            A(K,:)=(/DBLE(1),X,Y,X*X,X*Y,Y*Y/)
+            B(K)=IMG(INT(Y),INT(X))
+            K=K+1
+          ENDIF
+        ENDDO
       ENDDO
       LDA=NSAMPLES
       LDB=MAX(NSAMPLES,NPARAMS)
@@ -260,15 +250,40 @@ C  D is distance. Elements whose distance from the centre of IMG is larger than
 C    D are sampled. BG is fitted to the sampled elements.
 C  IMG is the matrix the background of which is to be fitted.
 C  BG is the output of this subroutine.
-      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y
-      INTEGER :: M,N,K
+      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y,XC,YC,D
+      INTEGER :: M,N,I,J,K
       DOUBLE PRECISION, ALLOCATABLE :: A(:,:),B(:),WORK(:)
       INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
       NPARAMS=15
-      
+      NSAMPLES=0
+      XC=0.5*(1+DBLE(N))
+      YC=0.5*(1+DBLE(M))
+      DO J=1,N
+        DO I=1,M
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            NSAMPLES=NSAMPLES+1
+          ENDIF
+        ENDDO
+      ENDDO
+      PRINT *,'NSAMPLES:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
-
+      K=1
+      DO J=1,N
+        DO I=1,M
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (DSQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            A(K,:)=(/DBLE(1),X,Y,X*X,X*Y,Y*Y,
+     &        X*X*X,X*X*Y,X*Y*Y,Y*Y*Y,
+     &        X*X*X*X,X*X*X*Y,X*X*Y*Y,X*Y*Y*Y,Y*Y*Y*Y/)
+            B(K)=IMG(INT(Y),INT(X))
+            K=K+1
+          ENDIF
+        ENDDO
+      ENDDO
       LDA=NSAMPLES
       LDB=MAX(NSAMPLES,NPARAMS)
       LWORK=-1
@@ -291,23 +306,25 @@ C  BG is the output of this subroutine.
       ENDIF
       PRINT *,'Fitting result'
       PRINT *,'=============='
-      PRINT *,'a_0: ',B(1)
-      PRINT *,'a_1: ',B(2)
-      PRINT *,'a_2: ',B(3)
-      PRINT *,'a_3: ',B(4)
-      PRINT *,'a_4: ',B(5)
-      PRINT *,'a_5: ',B(6)
+      DO K=1,NPARAMS
+        PRINT *,'i=',K,', a_i=',B(K)
+      ENDDO
       DO I=1,M
         DO J=1,N
-          BG(I,J)=B(1)+B(2)*DBLE(J)+B(3)*DBLE(I)+B(4)*DBLE(J)*DBLE(J)
-     &      +B(5)*DBLE(J)*DBLE(I)+B(6)*DBLE(I)*DBLE(I)
+          X=DBLE(J)
+          Y=DBLE(I)
+          BG(I,J)=B(1)+B(2)*X+B(3)*Y+
+     &      B(4)*X*X+B(5)*X*Y+B(6)*Y*Y+
+     &      B(7)*X*X*X+B(8)*X*X*Y+B(9)*X*Y*Y+B(10)*Y*Y*Y+
+     &      B(11)*X*X*X*X+B(12)*X*X*X*Y+B(13)*X*X*Y*Y+B(14)*X*Y*Y*Y+
+     &      B(15)*Y*Y*Y*Y
         ENDDO
       ENDDO
       DEALLOCATE(WORK)
       DEALLOCATE(B)
       DEALLOCATE(A)
       RETURN
-      ENDSUBROUTINE BGFIT2P2
+      ENDSUBROUTINE BGFIT2P4
 C ******************************************************************************
 C ******************************************************************************
 C ******************************************************************************

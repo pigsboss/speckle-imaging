@@ -35,6 +35,17 @@ C    ==================================
       NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
       NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
       NPIXELS=NAXES(1)*NAXES(2)
+      PRINT *,'*****************************************************'
+      PRINT *,'*               Size of the problem                 *'
+      PRINT *,'*****************************************************'
+      WRITE(*,'(A,I6)') 'First frame: ',FPIXELS(3)
+      WRITE(*,'(A,I6)') 'Last frame: ',LPIXELS(3)
+      WRITE(*,'(A,I5,A,I5,A)') 'First pixel: (',FPIXELS(1),',',
+     &  FPIXELS(2),')'
+      WRITE(*,'(A,I5,A,I5,A)') 'Last pixel: (',LPIXELS(1),',',
+     &  LPIXELS(2),')'
+      WRITE(*,'(A,I5,A,I5)') 'Frame size: ',NAXES(1),' x ',NAXES(2)
+      WRITE(*,'(A,I6)') 'Number of frames: ',NAXES(3)
 C    Allocate the space:
 C    ===================
       ALLOCATE(AVG(NPIXELS))
@@ -43,9 +54,13 @@ C    ===================
       ALLOCATE(CLN(NPIXELS))
 C    Calculate the average of all the frames:
 C    ========================================
-      PRINT *,'Start averaging all frames...'
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*****************************************************'
+      PRINT *,'*              Average of the frames:               *'
+      PRINT *,'*****************************************************'
       CALL AVERAGE(INFILE,FPIXELS,LPIXELS,AVG)
-      PRINT *,'Done.'
       FPIXELS=(/1,1,1/)
       LPIXELS=(/NAXES(1),NAXES(2),1/)
       AVGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_AVG.FITS'
@@ -53,11 +68,18 @@ C    ========================================
       PRINT *,'Write the average frame to: ',AVGFILE
 C    Fitting the background of the image:
 C    ====================================
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*****************************************************'
+      PRINT *,'*      Calculate the background of the image        *'
+      PRINT *,'*****************************************************'
       IMG=RESHAPE(AVG,(/NAXES(1),NAXES(2)/))
 C      Using 2nd polynomials:
 C      ======================
-      PRINT *,'Start fitting the background of the average frame',
-     &  ' using 2nd polynomials.'
+      PRINT *,'*'
+      PRINT *,'Using 2nd Polynomials:'
+      PRINT *,'*****************************************************'
       CALL BGFIT2P2(NAXES(1),NAXES(2),IMGRAD,IMG,BG)
       BGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_BG_P2.FITS'
       CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)
@@ -70,8 +92,10 @@ C      ======================
       PRINT *,'Write the clean frame to: ',CLNFILE
 C      Using 4th polynomials:
 C      ======================
-      PRINT *,'Start fitting the background of the average frame',
-     &  ' using 4th polynomials.'
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'Using 4th Polynomials:'
+      PRINT *,'*****************************************************'
       CALL BGFIT2P4(NAXES(1),NAXES(2),IMGRAD,IMG,BG)
       BGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_BG_P4.FITS'
       CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)

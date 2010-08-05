@@ -1,7 +1,7 @@
       PROGRAM MAIN
       INTEGER :: STATUS,UNIT,FPIXELS(3),LPIXELS(3),NAXES(3),NPIXELS
       CHARACTER :: FILENAME*80,ARG*255
-      DOUBLE PRECISION, ALLOCATABLE :: ARRAY(:)
+      DOUBLE PRECISION, ALLOCATABLE :: ARRAY(:),WORK(:)
       STATUS=0
       CALL GETARG(1,FILENAME)
       WRITE(*,*) 'INPUT: ',FILENAME
@@ -24,10 +24,11 @@
       PRINT *,'FRAME SIZE: ',NAXES(1),' BY ',NAXES(2)
       PRINT *,'NUMBER OF FRAMES: ',NAXES(3)
       ALLOCATE(ARRAY(NPIXELS))
+      ALLOCATE(WORK(NPIXELS))
 
 C  Start the Simple shift-and-add routine.
       PRINT *,'START AVERAGING...'
-      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,WORK)
       PRINT *,'DONE.'
       CALL GETARG(8,FILENAME)
       WRITE(*,*) 'OUTPUT: ',FILENAME
@@ -39,6 +40,7 @@ C  Start the Simple shift-and-add routine.
       LPIXELS(3)=1
       CALL WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       DEALLOCATE(ARRAY)
+      DEALLOCATE(WORK)
       STOP
       END
 C **********************************************************************

@@ -89,11 +89,10 @@ C ******************************************************************************
       RETURN
       ENDSUBROUTINE READIMAGE
 C ******************************************************************************
-      SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,BUFFER)
       INTEGER :: FPIXELS(*),LPIXELS(*),K,NPIXELS,F(3),L(3)
       CHARACTER*(*) :: FILENAME
-      DOUBLE PRECISION :: ARRAY(*),DA
-      DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:)
+      DOUBLE PRECISION :: ARRAY(*),BUFFER(*),DA,DSUM
       INTEGER :: NAXES(3)
       NAXES(1)=LPIXELS(1)-FPIXELS(1)+1
       NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
@@ -103,7 +102,6 @@ C ******************************************************************************
       F(2)=FPIXELS(2)
       L(1)=LPIXELS(1)
       L(2)=LPIXELS(2)
-      ALLOCATE(BUFFER(NPIXELS))
       DO K=1,NPIXELS
         ARRAY(K)=0
       ENDDO
@@ -112,11 +110,11 @@ C ******************************************************************************
         F(3)=K
         L(3)=K
         CALL READIMAGE(FILENAME,F,L,BUFFER)
+        DSUM=SUM(BUFFER(1:NPIXELS))
+        CALL DSCAL(NPIXELS,DBLE(NPIXELS)/DSUM,BUFFER,1)
         CALL DAXPY(NPIXELS,DA,BUFFER,1,ARRAY,1)
       ENDDO
-      DA=1.0/DBLE(NAXES(3))
-      CALL DSCAL(NPIXELS,DA,ARRAY,1)
-      DEALLOCATE(BUFFER)
+      CALL DSCAL(NPIXELS,1/DBLE(NAXES(3)),ARRAY,1)
       RETURN
       ENDSUBROUTINE AVERAGE
 C ******************************************************************************
@@ -135,7 +133,7 @@ C ******************************************************************************
       RETURN
       ENDSUBROUTINE RESOLVEPATH
 C ******************************************************************************
-      SUBROUTINE BGFIT2P2(M,N,D,IMG,BG)
+      SUBROUTINE BGFIT2P2(M,N,D,IMG,BG,B)
 C  2-dimensional background fitting subroutine using 2nd polynomials.
 C
 C  Purpose
@@ -151,15 +149,15 @@ C  =========
 C  M is the number of rows of matrix IMG.
 C  N is the number of columns of matrix IMG.
 C  IMG is the matrix the background of which is to be fitted.
-C  BG is the output of this subroutine.
-      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y,XC,YC,D
-      INTEGER :: M,N,I,J,K
+C  BG,B are the output of this subroutine.
 C  Each row of A is vector (1, x, y, x^2, x*y, y^2) for a specific (x,y).
 C  B is (z_1, z_2, z_3, ..., z_n)'. The subscript of z denotes different
 C  location.
-      DOUBLE PRECISION, ALLOCATABLE :: A(:,:),B(:),WORK(:)
-      INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
-      NPARAMS=6
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB
+      INTEGER :: M,N,I,J,K
+      DOUBLE PRECISION :: X,Y,XC,YC,D
+      DOUBLE PRECISION :: IMG(M,*),BG(M,*),B(*)
+      DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:)
       NSAMPLES=0
       XC=0.5*(1+DBLE(N))
       YC=0.5*(1+DBLE(M))
@@ -173,8 +171,7 @@ C  location.
         ENDDO
       ENDDO
       WRITE(*,'(A,I8.0)') ' Number of points sampled:',NSAMPLES
-      ALLOCATE(A(NSAMPLES,NPARAMS))
-      ALLOCATE(B(NSAMPLES))
+      ALLOCATE(A(NSAMPLES,6))
       K=1
       DO J=1,N
         DO I=1,M
@@ -188,15 +185,15 @@ C  location.
         ENDDO
       ENDDO
       LDA=NSAMPLES
-      LDB=MAX(NSAMPLES,NPARAMS)
+      LDB=MAX(NSAMPLES,6)
       LWORK=-1
       ALLOCATE(WORK(1))
-      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+      CALL DGELS('N',NSAMPLES,6,1,A,LDA,B,LDB,WORK,
      &  LWORK,INFO)
       LWORK=INT(WORK(1))
       DEALLOCATE(WORK)
       ALLOCATE(WORK(LWORK))
-      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+      CALL DGELS('N',NSAMPLES,6,1,A,LDA,B,LDB,WORK,
      &  LWORK,INFO)
       IF (INFO.GT.0)THEN
         PRINT *,'The least-squares solution could not be computed ',
@@ -207,11 +204,6 @@ C  location.
         PRINT *,'The argument has illegal value: ',ABS(INFO)
         RETURN
       ENDIF
-      PRINT *,'Fitting result:'
-      PRINT *,'--------------------------------------------'
-      DO K=1,NPARAMS
-        WRITE(*,'(A,ES10.3,A,I1)') ' a_i = ',B(K),', i = ',K
-      ENDDO
       DO I=1,M
         DO J=1,N
           BG(I,J)=B(1)+B(2)*DBLE(J)+B(3)*DBLE(I)+B(4)*DBLE(J)*DBLE(J)
@@ -219,7 +211,6 @@ C  location.
         ENDDO
       ENDDO
       DEALLOCATE(WORK)
-      DEALLOCATE(B)
       DEALLOCATE(A)
       RETURN
       ENDSUBROUTINE BGFIT2P2

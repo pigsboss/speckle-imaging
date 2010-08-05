@@ -172,7 +172,7 @@ C  location.
           ENDIF
         ENDDO
       ENDDO
-      PRINT *,'NSAMPLES:',NSAMPLES
+      WRITE(*,'(A,I8.0)') 'Number of points sampled:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
       K=1
@@ -207,14 +207,11 @@ C  location.
         PRINT *,'The argument has illegal value: ',ABS(INFO)
         RETURN
       ENDIF
-      PRINT *,'Fitting result'
-      PRINT *,'=============='
-      PRINT *,'a_0: ',B(1)
-      PRINT *,'a_1: ',B(2)
-      PRINT *,'a_2: ',B(3)
-      PRINT *,'a_3: ',B(4)
-      PRINT *,'a_4: ',B(5)
-      PRINT *,'a_5: ',B(6)
+      PRINT *,'Fitting result:'
+      PRINT *,'==============='
+      DO K=1,NPARAMS
+        WRITE(*,'(A,ES10.3,A,I1)') ' a_i = ',B(K),', i = ',K
+      ENDDO
       DO I=1,M
         DO J=1,N
           BG(I,J)=B(1)+B(2)*DBLE(J)+B(3)*DBLE(I)+B(4)*DBLE(J)*DBLE(J)
@@ -267,7 +264,7 @@ C  BG is the output of this subroutine.
           ENDIF
         ENDDO
       ENDDO
-      PRINT *,'NSAMPLES:',NSAMPLES
+      WRITE (*,'(A,I8.0)')'Number of points sampled:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
       K=1
@@ -304,10 +301,10 @@ C  BG is the output of this subroutine.
         PRINT *,'The argument has illegal value: ',ABS(INFO)
         RETURN
       ENDIF
-      PRINT *,'Fitting result'
-      PRINT *,'=============='
+      PRINT *,'Fitting result:'
+      PRINT *,'==============='
       DO K=1,NPARAMS
-        PRINT *,'i=',K,', a_i=',B(K)
+        WRITE(*,'(A,ES10.3,A,I2)') ' a_i = ',B(K),', i = ',K
       ENDDO
       DO I=1,M
         DO J=1,N

@@ -237,6 +237,77 @@ C  North edge:
       RETURN
       ENDSUBROUTINE BGFIT2P2
 C ******************************************************************************
+      SUBROUTINE BGFIT2P4(M,N,D,IMG,BG)
+C  2-dimensional background fitting subroutine using 4th polynomials.
+C
+C  Purpose
+C  =======
+C  z = a_0 + 
+C    a_1*x + a_2*y + 
+C    a_3*x^2 + a_4*x*y + a_5*y^2 + 
+C    a_6*x^3 + a_7*x^2*y + a_8*x*y^2 + a_9*y^3 +
+C    a_10*x^4 + a_11*x^3*y + a_12*x^2*y^2 + a_13*x*y^3 + a_14*y^4
+C  x is column number.
+C  y is row number.
+C  z is value of IMG at (x,y).
+C  Try to determine parameters a_i, i=0,1,2,3,...,14.
+C
+C  Arguments
+C  =========
+C  M is the number of rows of matrix IMG.
+C  N is the number of columns of matrix IMG.
+C  D is distance. Elements whose distance from the centre of IMG is larger than
+C    D are sampled. BG is fitted to the sampled elements.
+C  IMG is the matrix the background of which is to be fitted.
+C  BG is the output of this subroutine.
+      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y
+      INTEGER :: M,N,K
+      DOUBLE PRECISION, ALLOCATABLE :: A(:,:),B(:),WORK(:)
+      INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
+      NPARAMS=15
+      
+      ALLOCATE(A(NSAMPLES,NPARAMS))
+      ALLOCATE(B(NSAMPLES))
+
+      LDA=NSAMPLES
+      LDB=MAX(NSAMPLES,NPARAMS)
+      LWORK=-1
+      ALLOCATE(WORK(1))
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+     &  LWORK,INFO)
+      LWORK=INT(WORK(1))
+      DEALLOCATE(WORK)
+      ALLOCATE(WORK(LWORK))
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,B,LDB,WORK,
+     &  LWORK,INFO)
+      IF (INFO.GT.0)THEN
+        PRINT *,'The least-squares solution could not be computed ',
+     &    'because A does not have full rank.'
+        RETURN
+      ENDIF
+      IF (INFO.LT.0)THEN
+        PRINT *,'The argument has illegal value: ',ABS(INFO)
+        RETURN
+      ENDIF
+      PRINT *,'Fitting result'
+      PRINT *,'=============='
+      PRINT *,'a_0: ',B(1)
+      PRINT *,'a_1: ',B(2)
+      PRINT *,'a_2: ',B(3)
+      PRINT *,'a_3: ',B(4)
+      PRINT *,'a_4: ',B(5)
+      PRINT *,'a_5: ',B(6)
+      DO I=1,M
+        DO J=1,N
+          BG(I,J)=B(1)+B(2)*DBLE(J)+B(3)*DBLE(I)+B(4)*DBLE(J)*DBLE(J)
+     &      +B(5)*DBLE(J)*DBLE(I)+B(6)*DBLE(I)*DBLE(I)
+        ENDDO
+      ENDDO
+      DEALLOCATE(WORK)
+      DEALLOCATE(B)
+      DEALLOCATE(A)
+      RETURN
+      ENDSUBROUTINE BGFIT2P2
 C ******************************************************************************
 C ******************************************************************************
 C ******************************************************************************

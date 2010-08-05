@@ -12,7 +12,6 @@ C  ===========
 C    Resolve the command line options:
 C    =================================
       CALL GETARG(1,INFILE)
-      WRITE(*,*) 'Input: ',INFILE
       CALL GETARG(2,ARG)
       READ(ARG,*) FPIXELS(1)
       CALL GETARG(3,ARG)
@@ -36,16 +35,17 @@ C    ==================================
       NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
       NPIXELS=NAXES(1)*NAXES(2)
       PRINT *,'*****************************************************'
-      PRINT *,'*               Size of the problem                 *'
+      PRINT *,'*                    Definition                     *'
       PRINT *,'*****************************************************'
-      WRITE(*,'(A,I6)') 'First frame: ',FPIXELS(3)
-      WRITE(*,'(A,I6)') 'Last frame: ',LPIXELS(3)
-      WRITE(*,'(A,I5,A,I5,A)') 'First pixel: (',FPIXELS(1),',',
+      PRINT *,'Input: ',INFILE
+      WRITE(*,'(A,I6)') ' First frame: ',FPIXELS(3)
+      WRITE(*,'(A,I6)') ' Last frame: ',LPIXELS(3)
+      WRITE(*,'(A,I5,A,I5,A)') ' First pixel: (',FPIXELS(1),',',
      &  FPIXELS(2),')'
-      WRITE(*,'(A,I5,A,I5,A)') 'Last pixel: (',LPIXELS(1),',',
+      WRITE(*,'(A,I5,A,I5,A)') ' Last pixel: (',LPIXELS(1),',',
      &  LPIXELS(2),')'
-      WRITE(*,'(A,I5,A,I5)') 'Frame size: ',NAXES(1),' x ',NAXES(2)
-      WRITE(*,'(A,I6)') 'Number of frames: ',NAXES(3)
+      WRITE(*,'(A,I5,A,I5)') ' Frame size: ',NAXES(1),' x ',NAXES(2)
+      WRITE(*,'(A,I6)') ' Number of frames: ',NAXES(3)
 C    Allocate the space:
 C    ===================
       ALLOCATE(AVG(NPIXELS))
@@ -61,11 +61,9 @@ C    ========================================
       PRINT *,'*              Average of the frames:               *'
       PRINT *,'*****************************************************'
       CALL AVERAGE(INFILE,FPIXELS,LPIXELS,AVG)
-      FPIXELS=(/1,1,1/)
-      LPIXELS=(/NAXES(1),NAXES(2),1/)
       AVGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_AVG.FITS'
       CALL WRITEIMAGE(AVGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),AVG)
-      PRINT *,'Write the average frame to: ',AVGFILE
+      PRINT *,'Average: ',AVGFILE
 C    Fitting the background of the image:
 C    ====================================
       PRINT *,'*'
@@ -78,34 +76,41 @@ C    ====================================
 C      Using 2nd polynomials:
 C      ======================
       PRINT *,'*'
-      PRINT *,'Using 2nd Polynomials:'
-      PRINT *,'*****************************************************'
+      PRINT *,'2nd Polynomials:'
+      PRINT *,'--------------------------------------------'
       CALL BGFIT2P2(NAXES(1),NAXES(2),IMGRAD,IMG,BG)
       BGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_BG_P2.FITS'
-      CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)
-      PRINT *,'Write the background to: ',BGFILE
+      CALL WRITEIMAGE(BGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),BG)
+      PRINT *,'Background: ',BGFILE
       CALL DCOPY(NPIXELS,AVG,1,CLN,1)
-      PRINT *,'Subtract the background from the average frame.'
       CALL DAXPY(NPIXELS,DBLE(-1),BG,1,CLN,1)
       CLNFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_CLN_P2.FITS'
-      CALL WRITEIMAGE(CLNFILE,FPIXELS,LPIXELS,CLN)
-      PRINT *,'Write the clean frame to: ',CLNFILE
+      CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),CLN)
+      PRINT *,'Clean image: ',CLNFILE
 C      Using 4th polynomials:
 C      ======================
       PRINT *,'*'
       PRINT *,'*'
-      PRINT *,'Using 4th Polynomials:'
-      PRINT *,'*****************************************************'
+      PRINT *,'4th Polynomials:'
+      PRINT *,'--------------------------------------------'
       CALL BGFIT2P4(NAXES(1),NAXES(2),IMGRAD,IMG,BG)
       BGFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_BG_P4.FITS'
-      CALL WRITEIMAGE(BGFILE,FPIXELS,LPIXELS,BG)
-      PRINT *,'Write the background to: ',BGFILE
+      CALL WRITEIMAGE(BGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),BG)
+      PRINT *,'Background: ',BGFILE
       CALL DCOPY(NPIXELS,AVG,1,CLN,1)
-      PRINT *,'Subtract the background from the average frame.'
       CALL DAXPY(NPIXELS,DBLE(-1),BG,1,CLN,1)
       CLNFILE=TRIM(BASENAME)//'_'//TRIM(OUTFILE)//'_CLN_P4.FITS'
-      CALL WRITEIMAGE(CLNFILE,FPIXELS,LPIXELS,CLN)
-      PRINT *,'Write the clean frame to: ',CLNFILE
+      CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),CLN)
+      PRINT *,'Clean image: ',CLNFILE
+C    Simple shift-and-add:
+C    =====================
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*'
+      PRINT *,'*****************************************************'
+      PRINT *,'*              Simple shift-and-add                 *'
+      PRINT *,'*****************************************************'
+      
 C    Deallocate space:
 C    =================
       DEALLOCATE(IMG)

@@ -172,7 +172,7 @@ C  location.
           ENDIF
         ENDDO
       ENDDO
-      WRITE(*,'(A,I8.0)') 'Number of points sampled:',NSAMPLES
+      WRITE(*,'(A,I8.0)') ' Number of points sampled:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
       K=1
@@ -208,7 +208,7 @@ C  location.
         RETURN
       ENDIF
       PRINT *,'Fitting result:'
-      PRINT *,'==============='
+      PRINT *,'--------------------------------------------'
       DO K=1,NPARAMS
         WRITE(*,'(A,ES10.3,A,I1)') ' a_i = ',B(K),', i = ',K
       ENDDO
@@ -264,7 +264,7 @@ C  BG is the output of this subroutine.
           ENDIF
         ENDDO
       ENDDO
-      WRITE (*,'(A,I8.0)')'Number of points sampled:',NSAMPLES
+      WRITE (*,'(A,I8.0)')' Number of points sampled:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
       ALLOCATE(B(NSAMPLES))
       K=1
@@ -302,7 +302,7 @@ C  BG is the output of this subroutine.
         RETURN
       ENDIF
       PRINT *,'Fitting result:'
-      PRINT *,'==============='
+      PRINT *,'--------------------------------------------'
       DO K=1,NPARAMS
         WRITE(*,'(A,ES10.3,A,I2)') ' a_i = ',B(K),', i = ',K
       ENDDO

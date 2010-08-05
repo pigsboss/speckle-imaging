@@ -5,7 +5,7 @@ C  =============
       INTEGER :: K,NPIXELS
       DOUBLE PRECISION, ALLOCATABLE :: AVG(:),IMG(:,:),BG(:,:),CLN(:)
       DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:),B(:)
-      DOUBLE PRECISION :: IMGRAD
+      DOUBLE PRECISION :: IMGRAD,SNR
       CHARACTER :: INFILE*80,SUFFIX*80,AVGFILE*80,ARG*255
       CHARACTER :: BASENAME*80,EXTNAME*80,BGFILE*80,CLNFILE*80
       CHARACTER :: OUTFILE*80
@@ -98,13 +98,20 @@ C      ======================
       CALL DSCAL(NPIXELS,DBLE(NPIXELS)/SUM(CLN),CLN,1)
       CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),CLN)
       PRINT *,'Clean image: ',CLNFILE
+      CALL GETSNR(NAXES(1),NAXES(2),IMGRAD,SNR,IMG,2)
+      WRITE(*,'(A,ES10.3)') ' SNR: ',SNR
 C      Using 4th polynomials:
 C      ======================
       PRINT *,'*'
       PRINT *,'*'
       PRINT *,'4th Polynomials:'
       PRINT *,'--------------------------------------------'
-      CALL BGFIT2P4(NAXES(1),NAXES(2),IMGRAD,IMG,BG)
+      CALL BGFIT2P4(NAXES(1),NAXES(2),IMGRAD,IMG,BG,B)
+      PRINT *,'Fitting result:'
+      PRINT *,'--------------------------------------------'
+      DO K=1,NPARAMS
+        WRITE(*,'(A,ES10.3,A,I2)') ' a_i = ',B(K),', i = ',K
+      ENDDO
       BGFILE=TRIM(BASENAME)//'_'//TRIM(SUFFIX)//'_BG_P4.FITS'
       CALL WRITEIMAGE(BGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),BG)
       PRINT *,'Background: ',BGFILE
@@ -114,6 +121,8 @@ C      ======================
       CALL DSCAL(NPIXELS,DBLE(NPIXELS)/SUM(CLN),CLN,1)
       CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),CLN)
       PRINT *,'Clean image: ',CLNFILE
+      CALL GETSNR(NAXES(1),NAXES(2),IMGRAD,SNR,IMG,4)
+      WRITE(*,'(A,ES10.3)') ' SNR: ',SNR
 C    Simple shift-and-add:
 C    =====================
       PRINT *,'*'

@@ -215,7 +215,7 @@ C  location.
       RETURN
       ENDSUBROUTINE BGFIT2P2
 C ******************************************************************************
-      SUBROUTINE BGFIT2P4(M,N,D,IMG,BG)
+      SUBROUTINE BGFIT2P4(M,N,D,IMG,BG,B)
 C  2-dimensional background fitting subroutine using 4th polynomials.
 C
 C  Purpose
@@ -238,9 +238,9 @@ C  D is distance. Elements whose distance from the centre of IMG is larger than
 C    D are sampled. BG is fitted to the sampled elements.
 C  IMG is the matrix the background of which is to be fitted.
 C  BG is the output of this subroutine.
-      DOUBLE PRECISION :: IMG(M,*),BG(M,*),X,Y,XC,YC,D
+      DOUBLE PRECISION :: IMG(M,N),BG(M,N),X,Y,XC,YC,D,B(*)
       INTEGER :: M,N,I,J,K
-      DOUBLE PRECISION, ALLOCATABLE :: A(:,:),B(:),WORK(:)
+      DOUBLE PRECISION, ALLOCATABLE :: A(:,:),WORK(:)
       INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
       NPARAMS=15
       NSAMPLES=0
@@ -257,7 +257,6 @@ C  BG is the output of this subroutine.
       ENDDO
       WRITE (*,'(A,I8.0)')' Number of points sampled:',NSAMPLES
       ALLOCATE(A(NSAMPLES,NPARAMS))
-      ALLOCATE(B(NSAMPLES))
       K=1
       DO J=1,N
         DO I=1,M
@@ -292,11 +291,6 @@ C  BG is the output of this subroutine.
         PRINT *,'The argument has illegal value: ',ABS(INFO)
         RETURN
       ENDIF
-      PRINT *,'Fitting result:'
-      PRINT *,'--------------------------------------------'
-      DO K=1,NPARAMS
-        WRITE(*,'(A,ES10.3,A,I2)') ' a_i = ',B(K),', i = ',K
-      ENDDO
       DO I=1,M
         DO J=1,N
           X=DBLE(J)
@@ -309,10 +303,95 @@ C  BG is the output of this subroutine.
         ENDDO
       ENDDO
       DEALLOCATE(WORK)
-      DEALLOCATE(B)
       DEALLOCATE(A)
       RETURN
       ENDSUBROUTINE BGFIT2P4
 C ******************************************************************************
+      SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
+      INTEGER :: M,N,FTMETHOD,I,J,K,NPIXS,NSPLS,INFO
+      DOUBLE PRECISION :: SNR,D,X,Y,XC,YC,PS,PN
+      DOUBLE PRECISION :: IMG(M,N),CLN(M,N),WORK(M,N)
+      DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:)
+      DOUBLE COMPLEX :: FFT2IN(M,N)
+      DOUBLE COMPLEX :: COMM2D(M*N+3*(M+N)+100)
+      DOUBLE COMPLEX, ALLOCATABLE :: FFTIN(:),COMM1D(:)
+      NPIXS=M*N
+      NSPLS=0
+      XC=0.5*(1+DBLE(N))
+      YC=0.5*(1+DBLE(M))
+      DO I=1,M
+        DO J=1,N
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            NSPLS=NSPLS+1
+          END IF
+        END DO
+      END DO
+      ALLOCATE(BUFFER(NSPLS))
+      ALLOCATE(FFTIN(NSPLS))
+      ALLOCATE(COMM1D(3*NSPLS+100))
+      IF (FTMETHOD .EQ. 2) THEN
+        CALL BGFIT2P2(M,N,D,IMG,WORK,BUFFER)
+      ELSE IF (FTMETHOD .EQ. 4) THEN
+        CALL BGFIT2P4(M,N,D,IMG,WORK,BUFFER)
+      ELSE
+        PRINT *,' Unknown fitting method.'
+        RETURN
+      END IF
+      CLN=IMG-WORK
+      K=0
+      DO I=1,M
+        DO J=1,N
+          X=DBLE(J)
+          Y=DBLE(I)
+          IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
+            K=K+1
+            BUFFER(K)=CLN(I,J)
+          END IF
+        END DO
+      END DO
+      FFT2IN(1:M,1:N)=CMPLX(CLN(1:M,1:N))
+      CALL ZFFT2D(-1,M,N,FFT2IN,COMM2D,INFO)
+      PS=DZNRM2(M*N,RESHAPE(FFT2IN,(/M*N,1/)),1)
+      PS=PS*PS/DBLE(NPIXS)
+      FFTIN(1:NSPLS)=CMPLX(BUFFER(1:NSPLS))
+      CALL ZFFT1D(-1,NSPLS,FFTIN,COMM1D,INFO)
+      PN=DZNRM2(NSPLS,FFTIN,1)
+      PN=PN*PN/DBLE(NSPLS)
+      SNR=PS/PN
+      DEALLOCATE(FFTIN)
+      DEALLOCATE(BUFFER)
+      DEALLOCATE(COMM1D)
+      RETURN
+      END SUBROUTINE GETSNR
+C
+C
 C ******************************************************************************
+      SUBROUTINE DECONVWNR(M,N,G,F,PSF,SNR)
+C  Wiener deconvolution subroutine.
+C
+C  Purpose:
+C  ========
+C  G = conv(F, PSF). This routine returns G.
+C
+C  Arguments:
+C  ==========
+C  M - Number of rows of G.
+C  N - Number of columns of G.
+C  G - Output.
+C  F - Input. size(F) = size(G).
+C  PSF - Input. size(PSF) = size (G)
+C  SNR - Signal-to-noise ratio.
+C 
+C  Declarations:
+C  =============
+      INTEGER :: M,N
+      INTEGER*8 :: FFTPLAN
+      DOUBLE PRECISION :: G(M,N),F(M,N),PSF(M,N),WORK(M,N)
+      DOUBLE PRECISION :: SNR
+      DOUBLE COMPLEX :: FFTIN(M,N),FFTOUT(M,N)
+      DOUBLE COMPLEX :: OTF(M,N),FS(M,N),GS(M,N)
+      RETURN
+      END SUBROUTINE DECONVWNR
 C ******************************************************************************

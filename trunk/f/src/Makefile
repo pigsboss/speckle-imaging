@@ -18,6 +18,3 @@ average.o: average.f
 clean:
 	rm *.o
 
-install:
-	cp average ../test/
-	cp ssa ../test/

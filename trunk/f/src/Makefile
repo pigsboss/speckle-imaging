@@ -1,4 +1,10 @@
-all: average ssa
+all: average ssa deconvwnr
+
+deconvwnr: deconvwnr.o libspeckle.o
+	gfortran -o deconvwnr deconvwnr.o libspeckle.o -lcfitsio -lacml
+
+deconvwnr.o: deconvwnr.f
+	gfortran -O3 -c -o deconvwnr.o deconvwnr.f
 
 ssa: ssa.o libspeckle.o
 	gfortran -o ssa ssa.o libspeckle.o -lcfitsio -lacml

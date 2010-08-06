@@ -368,30 +368,52 @@ C ******************************************************************************
 C
 C
 C ******************************************************************************
-      SUBROUTINE DECONVWNR(M,N,G,F,PSF,SNR)
+      SUBROUTINE DECONVWNR(M,N,DG,DF,DH,DSNR)
 C  Wiener deconvolution subroutine.
 C
 C  Purpose:
 C  ========
-C  G = conv(F, PSF). This routine returns G.
+C  G = conv(F, H). This routine returns F.
 C
 C  Arguments:
 C  ==========
 C  M - Number of rows of G.
 C  N - Number of columns of G.
-C  G - Output.
-C  F - Input. size(F) = size(G).
-C  PSF - Input. size(PSF) = size (G)
-C  SNR - Signal-to-noise ratio.
+C  DG - Input.
+C  DF - Output. size(F) = size(G).
+C  DH - Input. size(PSF) = size (G)
+C  DSNR - Signal-to-noise ratio.
 C 
 C  Declarations:
 C  =============
-      INTEGER :: M,N
-      INTEGER*8 :: FFTPLAN
-      DOUBLE PRECISION :: G(M,N),F(M,N),PSF(M,N),WORK(M,N)
-      DOUBLE PRECISION :: SNR
-      DOUBLE COMPLEX :: FFTIN(M,N),FFTOUT(M,N)
-      DOUBLE COMPLEX :: OTF(M,N),FS(M,N),GS(M,N)
+      INTEGER :: M,N,INFO
+      DOUBLE PRECISION :: DG(M,N),DF(M,N),DH(M,N)
+      DOUBLE PRECISION :: DSNR
+      DOUBLE COMPLEX :: ZG(M,N),ZF(M,N),ZH(M,N)
+      DOUBLE COMPLEX :: ZCOMM(M*N+3*(M+N)),ZDECONV(M,N)
+      PRINT *,'1'
+      ZG=CMPLX(DG)
+      ZH=CMPLX(DH)
+      CALL ZFFTSHIFT(M,N,ZH)
+      CALL ZFFT2D(-1,M,N,ZG,ZCOMM,INFO)
+      CALL ZFFT2D(-1,M,N,ZH,ZCOMM,INFO)
+      ZDECONV=CONJG(ZH)/(ZH*CONJG(ZH)+CMPLX(DBLE(1)/DSNR))
+      ZF=ZG*ZDECONV
+      CALL ZFFT2D(1,M,N,ZF,ZCOMM,INFO)
+      DF=REAL(ZF)
       RETURN
       END SUBROUTINE DECONVWNR
 C ******************************************************************************
+      SUBROUTINE ZFFTSHIFT(M,N,ZX)
+C  Shift zero-frequency component to centre of spectrum.
+      INTEGER :: M,N,EM,SM
+      DOUBLE COMPLEX :: ZX(M,N),ZY(M,N)
+      SM=INT(FLOOR(REAL(M)*0.5))
+      EM=INT(FLOOR(REAL(N)*0.5))
+      ZY(1:M-SM,1:N-EM)=ZX(SM+1:M,EM+1:N)
+      ZY(1:M-SM,N-EM+1:N)=ZX(SM+1:M,1:EM)
+      ZY(M-SM+1:M,N-EM+1:N)=ZX(1:SM,1:EM)
+      ZY(M-SM+1:M,1:N-EM)=ZX(1:SM,EM+1:N)
+      ZX=ZY
+      RETURN
+      END SUBROUTINE ZFFTSHIFT

@@ -54,6 +54,10 @@ C  =============
         CALL GETARG(7,ARG)
         READ(ARG,*) DIMGRAD
         CALL GETSNR(M,N,DIMGRAD,DSNR,DG,4)
+      ELSE IF (TRIM(ARG).EQ.'P0')THEN
+        CALL GETARG(7,ARG)
+        READ(ARG,*) DIMGRAD
+        CALL GETSNR(M,N,DIMGRAD,DSNR,DG,0)
       ELSE
         READ(ARG,*) DSNR
       END IF

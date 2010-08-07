@@ -1,7 +1,10 @@
 all: average ssa deconvwnr isa
 
-isa: isa.o libspeckle.o
-	gfortran -o isa isa.o libspeckle.o -lcfitsio -lacml
+isa: isa.o libspeckle.o isarec.o
+	gfortran -o isa isa.o libspeckle.o isarec.o -lcfitsio -lacml
+
+isarec.o: isarec.f
+	gfortran -O3 -c -o isarec.o isarec.f
 
 isa.o: isa.f
 	gfortran -O3 -c -o isa.o isa.f
@@ -12,8 +15,11 @@ deconvwnr: deconvwnr.o libspeckle.o
 deconvwnr.o: deconvwnr.f
 	gfortran -O3 -c -o deconvwnr.o deconvwnr.f
 
-ssa: ssa.o libspeckle.o
-	gfortran -o ssa ssa.o libspeckle.o -lcfitsio -lacml
+ssa: ssa.o libspeckle.o ssarec.o
+	gfortran -o ssa ssa.o libspeckle.o ssarec.o -lcfitsio -lacml
+
+ssarec.o: ssarec.f
+	gfortran -O3 -c -o ssarec.o ssarec.f
 
 average: average.o libspeckle.o
 	gfortran -o average average.o libspeckle.o -lcfitsio -lacml

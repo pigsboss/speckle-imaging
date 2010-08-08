@@ -29,8 +29,7 @@ C  =============
       INTEGER :: FPIXELS(3),LPIXELS(3),M,N,NUMIT,P
       DOUBLE PRECISION :: DR
       DOUBLE PRECISION, ALLOCATABLE :: DREF(:,:),DISA(:,:),DBG(:,:)
-      CHARACTER :: OBSFILE*80,REFFILE*80,INITFILE*80,PREFIX*80,ARG*80
-      CHARACTER :: BGFILE*80
+      CHARACTER*(256) :: OBSFILE,REFFILE,INITFILE,PREFIX,ARG,BGFILE
 C
 C  Resolve the command line arguments:
 C  ===================================

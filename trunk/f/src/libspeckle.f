@@ -1,3 +1,8 @@
+      SUBROUTINE NUM2STR(NUM,STR,FORMAT_STR)
+      
+      RETURN
+      END SUBROUTINE NUM2STR
+C ******************************************************************************
       SUBROUTINE PRINTERROR(STATUS)
       INTEGER :: STATUS
       CHARACTER :: ERRTEXT*30,ERRMESSAGE*80
@@ -10,7 +15,7 @@
         CALL FTGMSG(ERRMESSAGE)
       ENDDO
       RETURN
-      ENDSUBROUTINE PRINTERROR
+      END SUBROUTINE PRINTERROR
 C ******************************************************************************
       SUBROUTINE DELETEFILE(FILENAME,STATUS)
       INTEGER :: STATUS,UNIT,BLOCKSIZE
@@ -30,7 +35,7 @@ C ******************************************************************************
       END IF
       CALL FTFIOU(UNIT, STATUS)
       RETURN
-      ENDSUBROUTINE DELETEFILE
+      END SUBROUTINE DELETEFILE
 C ******************************************************************************
       SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
@@ -54,7 +59,7 @@ C ******************************************************************************
       CALL FTFIOU(UNIT,STATUS)
       IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
-      ENDSUBROUTINE WRITEIMAGE
+      END SUBROUTINE WRITEIMAGE
 C ******************************************************************************
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       INTEGER :: STATUS,UNIT,READWRITE,BLOCKSIZE,NAXIS,NFOUND
@@ -87,7 +92,7 @@ C ******************************************************************************
       CALL FTFIOU(UNIT, STATUS)
       IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
-      ENDSUBROUTINE READIMAGE
+      END SUBROUTINE READIMAGE
 C ******************************************************************************
       SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,BUFFER)
       INTEGER :: FPIXELS(*),LPIXELS(*),K,NPIXELS,F(3),L(3)
@@ -116,7 +121,7 @@ C ******************************************************************************
       ENDDO
       CALL DSCAL(NPIXELS,1/DBLE(NAXES(3)),ARRAY,1)
       RETURN
-      ENDSUBROUTINE AVERAGE
+      END SUBROUTINE AVERAGE
 C ******************************************************************************
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
       CHARACTER*(*) :: PATH,BASENAME,EXTNAME
@@ -131,9 +136,9 @@ C ******************************************************************************
       K=SCAN(FILENAME,'.',.TRUE.)
       READ(FILENAME(K+1:L),*) EXTNAME
       RETURN
-      ENDSUBROUTINE RESOLVEPATH
+      END SUBROUTINE RESOLVEPATH
 C ******************************************************************************
-      SUBROUTINE BGFIT2P0(M,N,D,IMG,BG)
+      SUBROUTINE BGFIT2P0(M,N,D,IMG,BG,B)
       INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB
       INTEGER :: M,N,I,J,K
       DOUBLE PRECISION :: X,Y,XC,YC,D,B
@@ -148,13 +153,14 @@ C ******************************************************************************
           Y=DBLE(I)
           IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
             NSAMPLES=NSAMPLES+1
-            B=IMG(I,J)
+            B=B+IMG(I,J)
           END IF
         END DO
       END DO
-      BG=B/DBLE(NSAMPLES)
+      B=B/DBLE(NSAMPLES)
+      BG=B
       RETURN
-      ENDSUBROUTINE BGFIT2P0
+      END SUBROUTINE BGFIT2P0
 C ******************************************************************************
       SUBROUTINE BGFIT2P2(M,N,D,IMG,BG,B)
 C  2-dimensional background fitting subroutine using 2nd polynomials.
@@ -235,7 +241,7 @@ C  location.
       DEALLOCATE(WORK)
       DEALLOCATE(A)
       RETURN
-      ENDSUBROUTINE BGFIT2P2
+      END SUBROUTINE BGFIT2P2
 C ******************************************************************************
       SUBROUTINE BGFIT2P4(M,N,D,IMG,BG,B)
 C  2-dimensional background fitting subroutine using 4th polynomials.
@@ -326,16 +332,23 @@ C  BG is the output of this subroutine.
       DEALLOCATE(WORK)
       DEALLOCATE(A)
       RETURN
-      ENDSUBROUTINE BGFIT2P4
+      END SUBROUTINE BGFIT2P4
 C ******************************************************************************
       SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
+      INCLUDE 'fftw3.f'
+      INTEGER*8 :: PLAN1D,PLAN2D
       INTEGER :: M,N,FTMETHOD,I,J,K,NPIXS,NSPLS,INFO
       DOUBLE PRECISION :: SNR,D,X,Y,XC,YC,PS,PN
       DOUBLE PRECISION :: IMG(M,N),CLN(M,N),WORK(M,N)
       DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:)
-      DOUBLE COMPLEX :: FFT2IN(M,N)
-      DOUBLE COMPLEX :: COMM2D(M*N+3*(M+N)+100)
-      DOUBLE COMPLEX, ALLOCATABLE :: FFTIN(:),COMM1D(:)
+      DOUBLE COMPLEX :: ZIN2D(M,N),ZOUT2D(M,N)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN1D(:),ZOUT1D(:)
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF (INFO .EQ. 0)THEN
+        PRINT *,'DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
       NPIXS=M*N
       NSPLS=0
       XC=0.5*(1+DBLE(N))
@@ -350,14 +363,18 @@ C ******************************************************************************
         END DO
       END DO
       ALLOCATE(BUFFER(NSPLS))
-      ALLOCATE(FFTIN(NSPLS))
-      ALLOCATE(COMM1D(3*NSPLS+100))
+      ALLOCATE(ZIN1D(NSPLS))
+      ALLOCATE(ZOUT1D(NSPLS))
+      CALL DFFTW_PLAN_DFT_1D(PLAN1D,NSPLS,ZIN1D,ZOUT1D,-1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      CALL DFFTW_PLAN_DFT_2D(PLAN2D,M,N,ZIN2D,ZOUT2D,-1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       IF (FTMETHOD .EQ. 2) THEN
         CALL BGFIT2P2(M,N,D,IMG,WORK,BUFFER)
       ELSE IF (FTMETHOD .EQ. 4) THEN
         CALL BGFIT2P4(M,N,D,IMG,WORK,BUFFER)
       ELSE IF (FTMETHOD .EQ. 0) THEN
-        CALL BGFIT2P0(M,N,D,IMG,WORK)
+        CALL BGFIT2P0(M,N,D,IMG,WORK,BUFFER(1))
       ELSE
         PRINT *,' Unknown fitting method.'
         RETURN
@@ -374,18 +391,21 @@ C ******************************************************************************
           END IF
         END DO
       END DO
-      FFT2IN(1:M,1:N)=CMPLX(CLN(1:M,1:N))
-      CALL ZFFT2D(-1,M,N,FFT2IN,COMM2D,INFO)
-      PS=DZNRM2(M*N,RESHAPE(FFT2IN,(/M*N,1/)),1)
-      PS=PS*PS/DBLE(NPIXS)
-      FFTIN(1:NSPLS)=CMPLX(BUFFER(1:NSPLS))
-      CALL ZFFT1D(-1,NSPLS,FFTIN,COMM1D,INFO)
-      PN=DZNRM2(NSPLS,FFTIN,1)
-      PN=PN*PN/DBLE(NSPLS)
+      ZIN2D(1:M,1:N)=CMPLX(CLN(1:M,1:N))
+      CALL DFFTW_EXECUTE_DFT(PLAN2D,ZIN2D,ZOUT2D)
+      PS=DZNRM2(M*N,RESHAPE(ZOUT2D,(/NPIXS,1/)),1)
+      PS=PS*PS/DBLE(NPIXS)/SQRT(DBLE(NPIXS))
+      ZIN1D(1:NSPLS)=CMPLX(BUFFER(1:NSPLS))
+      CALL DFFTW_EXECUTE_DFT(PLAN1D,ZIN1D,ZOUT1D)
+      PN=DZNRM2(NSPLS,ZOUT1D(1:NSPLS),1)
+      PN=PN*PN/DBLE(NSPLS)/SQRT(DBLE(NSPLS))
       SNR=PS/PN
-      DEALLOCATE(FFTIN)
+      CALL DFFTW_DESTROY_PLAN(PLAN1D)
+      CALL DFFTW_DESTROY_PLAN(PLAN2D)
+      CALL DFFTW_CLEANUP_THREADS()
+      DEALLOCATE(ZIN1D)
       DEALLOCATE(BUFFER)
-      DEALLOCATE(COMM1D)
+      DEALLOCATE(ZOUT1D)
       RETURN
       END SUBROUTINE GETSNR
 C ******************************************************************************
@@ -407,20 +427,32 @@ C  DSNR - Signal-to-noise ratio.
 C 
 C  Declarations:
 C  =============
-      INTEGER :: M,N,INFO
+      INCLUDE 'fftw3.f'
+      INTEGER*8 :: PLAN
+      INTEGER :: M,N
       DOUBLE PRECISION :: DG(M,N),DF(M,N),DH(M,N)
       DOUBLE PRECISION :: DSNR
-      DOUBLE COMPLEX :: ZG(M,N),ZF(M,N),ZH(M,N)
-      DOUBLE COMPLEX :: ZCOMM(M*N+3*(M+N)),ZDECONV(M,N)
-      ZG=CMPLX(DG)
-      ZH=CMPLX(DH)
-      CALL ZFFTSHIFT(M,N,ZH)
-      CALL ZFFT2D(-1,M,N,ZG,ZCOMM,INFO)
-      CALL ZFFT2D(-1,M,N,ZH,ZCOMM,INFO)
+      DOUBLE COMPLEX :: ZG(M,N),ZH(M,N)
+      DOUBLE COMPLEX :: ZIN(M,N),ZOUT(M,N),ZDECONV(M,N)
+      CALL DFFTW_INIT_THREADS()
+      CALL DFFTW_PLAN_WITH_NTHREADS(PLAN,2)
+      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      ZIN=CMPLX(DG)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      ZG=ZOUT
+      ZIN=CMPLX(DH)
+      CALL ZFFTSHIFT(M,N,ZIN)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      ZH=ZOUT
       ZDECONV=CONJG(ZH)/(ZH*CONJG(ZH)+CMPLX(DBLE(1)/DSNR))
-      ZF=ZG*ZDECONV
-      CALL ZFFT2D(1,M,N,ZF,ZCOMM,INFO)
-      DF=DBLE(ZF)
+      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      ZIN=ZG*ZDECONV
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      DF=DBLE(ZOUT)
+      CALL DFFTW_DESTROY_PLAN(PLAN)
+      CALL DFFTW_CLEANUP_THREADS()
       RETURN
       END SUBROUTINE DECONVWNR
 C ******************************************************************************
@@ -446,17 +478,26 @@ C  ========
 C  c = corr(a, b). calculates c given a and b using fast fourier transform.
 C  fft(c) = fft(a) * conj(fft(b)) (periodic extension is implied).
 C
-      INTEGER :: M,N,INFO
+      INCLUDE 'fftw3.f'
+      INTEGER*8 :: PLAN
+      INTEGER :: M,N
       DOUBLE PRECISION, DIMENSION(M,N) :: DA,DB,DC
-      DOUBLE COMPLEX, DIMENSION(M,N) :: ZA,ZB,ZC
-      DOUBLE COMPLEX :: COMM(M*N+3*(M+N))
-      ZA=CMPLX(DA)
-      ZB=CMPLX(DB)
-      CALL ZFFT2D(-1,M,N,ZA,COMM,INFO)
-      CALL ZFFT2D(-1,M,N,ZB,COMM,INFO)
-      ZC=ZA*CONJG(ZB)
-      CALL ZFFT2D(1,M,N,ZC,COMM,INFO)
-      DC=DBLE(ZC)
+      DOUBLE COMPLEX, DIMENSION(M,N) :: ZA,ZB,ZIN,ZOUT
+      CALL DFFTW_INIT_THREADS()
+      CALL DFFTW_PLAN_WITH_NTHREADS(PLAN,2)
+      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      ZIN=CMPLX(DA)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      ZA=ZOUT
+      ZIN=CMPLX(DB)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      ZB=ZOUT
+      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      ZIN=ZA*CONJG(ZB)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      DC=DBLE(ZOUT)
       RETURN
       END SUBROUTINE DCORR2D
 

@@ -1,8 +1,3 @@
-      SUBROUTINE NUM2STR(NUM,STR,FORMAT_STR)
-      
-      RETURN
-      END SUBROUTINE NUM2STR
-C ******************************************************************************
       SUBROUTINE PRINTERROR(STATUS)
       INTEGER :: STATUS
       CHARACTER :: ERRTEXT*30,ERRMESSAGE*80
@@ -39,11 +34,11 @@ C ******************************************************************************
 C ******************************************************************************
       SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
-      INTEGER :: FPIXELS(*),LPIXELS(*),NAXES(3)
-      DOUBLE PRECISION :: ARRAY(*)
-      CHARACTER*(*) :: FILENAME
+      INTEGER, INTENT(IN) :: FPIXELS(*),LPIXELS(*)
+      INTEGER :: NAXES(3)
+      DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
       STATUS=0
-      CALL DELETEFILE(FILENAME,STATUS)
       CALL FTGIOU(UNIT,STATUS)
       BLOCKSIZE=1
       BITPIX=-64
@@ -51,6 +46,7 @@ C ******************************************************************************
       NAXES(1)=LPIXELS(1)-FPIXELS(1)+1
       NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
       NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
+      CALL DELETEFILE(FILENAME,STATUS)
       CALL FTINIT(UNIT,FILENAME,BLOCKSIZE,STATUS)
       CALL FTPHPS(UNIT,BITPIX,NAXIS,NAXES,STATUS)
       GROUP=1
@@ -94,32 +90,37 @@ C ******************************************************************************
       RETURN
       END SUBROUTINE READIMAGE
 C ******************************************************************************
-      SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,BUFFER)
-      INTEGER :: FPIXELS(*),LPIXELS(*),K,NPIXELS,F(3),L(3)
-      CHARACTER*(*) :: FILENAME
-      DOUBLE PRECISION :: ARRAY(*),BUFFER(*),DA,DSUM
-      INTEGER :: NAXES(3)
-      NAXES(1)=LPIXELS(1)-FPIXELS(1)+1
-      NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
-      NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
-      NPIXELS=NAXES(1)*NAXES(2)
-      F(1)=FPIXELS(1)
-      F(2)=FPIXELS(2)
-      L(1)=LPIXELS(1)
-      L(2)=LPIXELS(2)
-      DO K=1,NPIXELS
-        ARRAY(K)=0
-      ENDDO
-      DA=1.0
-      DO K=FPIXELS(3),LPIXELS(3)
-        F(3)=K
-        L(3)=K
-        CALL READIMAGE(FILENAME,F,L,BUFFER)
-        DSUM=SUM(BUFFER(1:NPIXELS))
-        CALL DSCAL(NPIXELS,DBLE(NPIXELS)/DSUM,BUFFER,1)
-        CALL DAXPY(NPIXELS,DA,BUFFER,1,ARRAY,1)
-      ENDDO
-      CALL DSCAL(NPIXELS,1/DBLE(NAXES(3)),ARRAY,1)
+      SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,BUFFERSIZE)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3),BUFFERSIZE
+      INTEGER :: L,LF,LT,LR,K,NPIXELS,M,N,NFRAMES,LBUFFER
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      DOUBLE PRECISION, INTENT(OUT) :: ARRAY(LPIXELS(1)-FPIXELS(1)+1,
+     &  LPIXELS(2)-FPIXELS(2)+1)
+      DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:,:,:)
+      M=LPIXELS(1)-FPIXELS(1)+1
+      N=LPIXELS(2)-FPIXELS(2)+1
+      NFRAMES=LPIXELS(3)-FPIXELS(3)+1
+      NPIXELS=M*N
+      LBUFFER=INT(FLOOR(DBLE(BUFFERSIZE)*1024*1024/DBLE(8*NPIXELS)))
+      PRINT *,'Length of buffer: ',LBUFFER,' frames.'
+      ALLOCATE(BUFFER(M,N,LBUFFER))
+      ARRAY=0
+      LF=1
+      DO L=1,INT(CEILING(DBLE(NFRAMES)/DBLE(LBUFFER)))
+        LT=MIN(LPIXELS(3),LF+LBUFFER-1)
+C       PRINT *,'From',LF,' To',LT
+        CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),LF/),
+     &    (/LPIXELS(1),LPIXELS(2),LT/),BUFFER(1:M,1:N,1:LBUFFER))
+        LR=LT-LF+1
+        LF=LT+1
+        DO K=1,LR
+C         PRINT *,SUM(BUFFER(1:M,1:N,K))
+          ARRAY=ARRAY+BUFFER(1:M,1:N,K)/SUM(BUFFER(1:M,1:N,K))
+     &      *DBLE(NPIXELS)
+        END DO
+      END DO
+      ARRAY=ARRAY/DBLE(NFRAMES)
+      DEALLOCATE(BUFFER)
       RETURN
       END SUBROUTINE AVERAGE
 C ******************************************************************************
@@ -142,7 +143,8 @@ C ******************************************************************************
       INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB
       INTEGER :: M,N,I,J,K
       DOUBLE PRECISION :: X,Y,XC,YC,D,B
-      DOUBLE PRECISION :: IMG(M,N),BG(M,N)
+      DOUBLE PRECISION, INTENT(IN):: IMG(M,N)
+      DOUBLE PRECISION, INTENT(INOUT) :: BG(M,N)
       NSAMPLES=0
       B=0
       XC=0.5*(1+DBLE(N))
@@ -402,7 +404,7 @@ C ******************************************************************************
       SNR=PS/PN
       CALL DFFTW_DESTROY_PLAN(PLAN1D)
       CALL DFFTW_DESTROY_PLAN(PLAN2D)
-      CALL DFFTW_CLEANUP_THREADS()
+C     CALL DFFTW_CLEANUP_THREADS()
       DEALLOCATE(ZIN1D)
       DEALLOCATE(BUFFER)
       DEALLOCATE(ZOUT1D)
@@ -429,13 +431,16 @@ C  Declarations:
 C  =============
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN
-      INTEGER :: M,N
+      INTEGER :: M,N,INFO
       DOUBLE PRECISION :: DG(M,N),DF(M,N),DH(M,N)
       DOUBLE PRECISION :: DSNR
       DOUBLE COMPLEX :: ZG(M,N),ZH(M,N)
       DOUBLE COMPLEX :: ZIN(M,N),ZOUT(M,N),ZDECONV(M,N)
-      CALL DFFTW_INIT_THREADS()
-      CALL DFFTW_PLAN_WITH_NTHREADS(PLAN,2)
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF (INFO .EQ. 0)THEN
+        PRINT *,'DFFTW_INIT_THREADS failed.'
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
       CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       ZIN=CMPLX(DG)
@@ -452,23 +457,45 @@ C  =============
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       DF=DBLE(ZOUT)
       CALL DFFTW_DESTROY_PLAN(PLAN)
-      CALL DFFTW_CLEANUP_THREADS()
+C     CALL DFFTW_CLEANUP_THREADS()
       RETURN
       END SUBROUTINE DECONVWNR
 C ******************************************************************************
       SUBROUTINE ZFFTSHIFT(M,N,ZX)
-C  Shift zero-frequency component to centre of spectrum.
-      INTEGER :: M,N,EM,SM
-      DOUBLE COMPLEX :: ZX(M,N),ZY(M,N)
-      SM=INT(FLOOR(REAL(M)*0.5))
-      EM=INT(FLOOR(REAL(N)*0.5))
-      ZY(1:M-SM,1:N-EM)=ZX(SM+1:M,EM+1:N)
-      ZY(1:M-SM,N-EM+1:N)=ZX(SM+1:M,1:EM)
-      ZY(M-SM+1:M,N-EM+1:N)=ZX(1:SM,1:EM)
-      ZY(M-SM+1:M,1:N-EM)=ZX(1:SM,EM+1:N)
-      ZX=ZY
+C  Shift zero-frequency component to the centre of spectrum.
+      INTEGER, INTENT(IN) :: M,N
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZX(M,N)
+      ZX=CSHIFT(CSHIFT(ZX,INT(FLOOR(0.5*DBLE(M))),1),
+     &  INT(FLOOR(0.5*DBLE(N))),2)
       RETURN
       END SUBROUTINE ZFFTSHIFT
+C ******************************************************************************
+      SUBROUTINE DFFTSHIFT(M,N,DX)
+C  Shift zero-frequency component to the centre of spectrum.
+      INTEGER, INTENT(IN) :: M,N
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(M,N)
+      DX=CSHIFT(CSHIFT(DX,INT(FLOOR(0.5*DBLE(M))),1),
+     &  INT(FLOOR(0.5*DBLE(N))),2)
+      RETURN
+      END SUBROUTINE DFFTSHIFT
+C ******************************************************************************
+      SUBROUTINE ZIFFTSHIFT(M,N,ZX)
+C  Shift zero-frequency component to (1,1) position of spectrum.
+      INTEGER, INTENT(IN) :: M,N
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZX(M,N)
+      ZX=CSHIFT(CSHIFT(ZX,INT(FLOOR(-0.5*DBLE(M))),1),
+     &  INT(FLOOR(-0.5*DBLE(N))),2)
+      RETURN
+      END SUBROUTINE ZIFFTSHIFT
+C ******************************************************************************
+      SUBROUTINE DIFFTSHIFT(M,N,DX)
+C  Shift zero-frequency component to (1,1) position of spectrum.
+      INTEGER, INTENT(IN) :: M,N
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(M,N)
+      DX=CSHIFT(CSHIFT(DX,INT(FLOOR(-0.5*DBLE(M))),1),
+     &  INT(FLOOR(-0.5*DBLE(N))),2)
+      RETURN
+      END SUBROUTINE DIFFTSHIFT
 C ******************************************************************************
       SUBROUTINE DCORR2D(M,N,DA,DB,DC)
 C  correlation coefficients of 2-dimensional array.

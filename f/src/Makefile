@@ -1,4 +1,12 @@
-all: average ssa deconvwnr isa
+all: average ssa deconvwnr isa si sm
+
+sm: sm.o libspeckle.o smrec.o
+	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas
+
+si: si.o libspeckle.o sirec.o
+	gfortran -o si si.o libspeckle.o sirec.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas
 
 isa: isa.o libspeckle.o isarec.o
 	gfortran -o isa isa.o libspeckle.o isarec.o -lcfitsio -lfftw3_threads \
@@ -15,6 +23,18 @@ ssa: ssa.o libspeckle.o ssarec.o
 average: average.o libspeckle.o
 	gfortran -o average average.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas
+
+sirec.o: sirec.f
+	gfortran -O3 -c -o sirec.o sirec.f -I/usr/local/include
+
+smrec.o: smrec.f
+	gfortran -O3 -c -o smrec.o smrec.f -I/usr/local/include
+
+si.o: si.f
+	gfortran -O3 -c -o si.o si.f -I/usr/local/include
+
+sm.o: sm.f
+	gfortran -O3 -c -o sm.o sm.f -I/usr/local/include
 
 libspeckle.o: libspeckle.f
 	gfortran -O3 -c -o libspeckle.o libspeckle.f -I/usr/local/include
@@ -39,4 +59,3 @@ isa.o: isa.f
 
 clean:
 	rm *.o
-

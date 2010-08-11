@@ -93,6 +93,8 @@ C  Determine the size of the bispectrum array:
                 DO I1=1,MIN(I2,P-I2)
                   ZBISP(I3)=ZBISP(I3)+ZSP(I1,J1)*ZSP(I2,J2)*
      &              CONJG(ZSP(I1+I2,J1+J2))
+                  PRINT *,I3
+                  PRINT *,BISPOS(I1,J1,I2,J2,P)
                   I3=I3+1
                 END DO
               END DO
@@ -121,7 +123,7 @@ C  =============
       RETURN
       END SUBROUTINE PHASERECURSION
 C ******************************************************************************
-      INTEGER FUNCTION BISPOS(I1,J1,I2,J2,P,MW)
+      INTEGER FUNCTION BISPOS(I1,J1,I2,J2,P)
       INTEGER :: K,L
       K=0
       DO L=1,J2-1
@@ -137,5 +139,6 @@ C ******************************************************************************
       IF (I2 .GT. P/2+1) THEN
         K=K+(3*P-2*I2-2)*(2*I2-P-4)*(P-J2)/8+I2*(P-I2-1)+I1
       END IF
+      BISPOS=K
       RETURN
       END FUNCTION BISPOS

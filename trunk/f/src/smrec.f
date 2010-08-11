@@ -75,10 +75,10 @@ C  Calculate bispectrum:
       END IF
       PRINT *,'Start planning.'
       CALL DFFTW_PLAN_DFT_2D(PLAN,P,P,ZIN,ZOUT,-1,
-     &  FFTW_PATIENT+FFTW_DESTROY_INPUT)
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
       PRINT *,'Finished planning.'
 C  Determine the size of the bispectrum array:
-      ZBISP=CMPLX(0)
+      ZBISP=CMPLX(0.0)
       DIMG=0
       LF=1
       DO L=1,INT(CEILING(DBLE(NFRAMES)/DBLE(LBUFFER)))
@@ -89,7 +89,7 @@ C  Determine the size of the bispectrum array:
         DO K=1,LR
           DIMG=BUFFER(1:M,1:N,K)/SUM(BUFFER(1:M,1:N,K))*DBLE(NPIXELS)-
      &      DBG
-          DIMG=DIMG/SUM(DIMG)*DBLE(NPIXELS)
+          DIMG=DIMG/SUM(DIMG)
           ZIN(0:M-1,0:N-1)=CMPLX(DIMG)
           CALL ZIFFTSHIFT(P,P,ZIN)
           CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
@@ -151,7 +151,7 @@ C    &          DPHI(I1+I2,J1+J2),DBETA(K)
       END DO
       END SUBROUTINE GENERATEBETA
 C ******************************************************************************
-      SUBROUTINE PHASERECURSION(P,MW,DBETA,DPHI,DREF)
+      SUBROUTINE PHASERECURSION(P,MW,DBETA,DPHI)
 C  Recursive algorithm to solve the phase equations.
 C
 C  Declarations:
@@ -162,7 +162,6 @@ C  =============
       DOUBLE PRECISION :: R
       DOUBLE PRECISION, INTENT(OUT) :: DPHI(0:P-1,0:P-1)
       DOUBLE PRECISION, INTENT(IN) :: DBETA((MW+1)*(2*P-MW)*P*(P+2)/8)
-     &  ,DREF(0:P-1,0:P-1)
 C  Interface:
 C  ==========
       INTERFACE
@@ -174,7 +173,6 @@ C  ==========
       END INTERFACE
 C  Statements:
 C  ===========
-      PRINT *,'PHASE RECURSION'
       DPHI=DBLE(0.0)
       DO K=2,2*(P-1)
         DO I=MAX(0,K+1-P),MIN(K,P-1)

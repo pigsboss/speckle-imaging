@@ -339,12 +339,13 @@ C ******************************************************************************
       SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN1D,PLAN2D
-      INTEGER :: M,N,FTMETHOD,I,J,K,NPIXS,NSPLS,INFO
+      INTEGER :: M,N,I,J,K,NPIXS,NSPLS,INFO
       DOUBLE PRECISION :: SNR,D,X,Y,XC,YC,PS,PN
       DOUBLE PRECISION :: IMG(M,N),CLN(M,N),WORK(M,N)
       DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:)
       DOUBLE COMPLEX :: ZIN2D(M,N),ZOUT2D(M,N)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN1D(:),ZOUT1D(:)
+      CHARACTER*(*) :: FTMETHOD
       CALL DFFTW_INIT_THREADS(INFO)
       IF (INFO .EQ. 0)THEN
         PRINT *,'DFFTW_INIT_THREADS failed.'
@@ -371,11 +372,11 @@ C ******************************************************************************
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       CALL DFFTW_PLAN_DFT_2D(PLAN2D,M,N,ZIN2D,ZOUT2D,-1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
-      IF (FTMETHOD .EQ. 2) THEN
+      IF (FTMETHOD .EQ. 'P2') THEN
         CALL BGFIT2P2(M,N,D,IMG,WORK,BUFFER)
-      ELSE IF (FTMETHOD .EQ. 4) THEN
+      ELSE IF (FTMETHOD .EQ. 'P4') THEN
         CALL BGFIT2P4(M,N,D,IMG,WORK,BUFFER)
-      ELSE IF (FTMETHOD .EQ. 0) THEN
+      ELSE IF (FTMETHOD .EQ. 'P0') THEN
         CALL BGFIT2P0(M,N,D,IMG,WORK,BUFFER(1))
       ELSE
         PRINT *,' Unknown fitting method.'
@@ -528,3 +529,69 @@ C
       RETURN
       END SUBROUTINE DCORR2D
 
+C ******************************************************************************
+      SUBROUTINE GETPDS(FILENAME,FPIXELS,LPIXELS,DR,P,FTMETHOD,DPDS)
+C  Purpose:
+C  ========
+C  Get the mean power density spectrum of all frames in the given FITS file.
+C
+C  Declarations:
+C  =============
+      INCLUDE 'fftw3.f'
+      INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES
+      INTEGER*8 :: PLAN
+      INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3),P
+      DOUBLE PRECISION, INTENT(OUT) :: DPDS(P,P)
+      DOUBLE PRECISION, 
+     &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
+     &  WORK,DBG,DB
+      DOUBLE PRECISION, INTENT(IN) :: DR
+      DOUBLE COMPLEX :: ZIN(P,P),ZOUT(P,P)
+      CHARACTER*(*), INTENT(IN) :: FILENAME,FTMETHOD
+C  Statements:
+C  ===========
+      M=LPIXELS(1)-FPIXELS(1)+1
+      N=LPIXELS(2)-FPIXELS(2)+1
+      NPIXELS=M*N
+      NFRAMES=LPIXELS(3)-FPIXELS(3)+1
+      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,WORK,100)
+      IF (FTMETHOD .EQ. 'P0')THEN
+        CALL BGFIT2P0(M,N,DR,WORK,DBG,DB(1,1))
+      ELSE IF (FTMETHOD .EQ. 'P2') THEN
+        CALL BGFIT2P2(M,N,DR,WORK,DBG,DB)
+      ELSE IF (FTMETHOD .EQ. 'P4') THEN
+        CALL BGFIT2P4(M,N,DR,WORK,DBG,DB)
+      ELSE
+        PRINT *,'Unknown fitting method.'
+        RETURN
+      END IF
+C  subtract the minimum value (the most negative value) of the background
+C  in order not to introduce negative counts into images.
+C     DBG=DBG-MINVAL(DBG)
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF (INFO .EQ. 0)THEN
+        PRINT *,'DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
+      CALL DFFTW_IMPORT_SYSTEM_WISDOM(INFO)
+      IF (INFO .EQ. 0)THEN
+        PRINT *,'DFFTW_IMPORT_SYSTEM_WISDOM failed.'
+      END IF
+      PRINT *,'Start planning.'
+      CALL DFFTW_PLAN_DFT_2D(PLAN,P,P,ZIN,ZOUT,-1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      PRINT *,'Finished planning.'
+      DPDS=0
+      DO K=FPIXELS(3),LPIXELS(3)
+        CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),K/),
+     &    (/LPIXELS(1),LPIXELS(2),K/),WORK)
+        ZIN=CMPLX(WORK/SUM(WORK)*DBLE(NPIXELS)-DBG)
+        CALL ZIFFTSHIFT(P,P,ZIN)
+        CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+        DPDS=DPDS+DBLE(ZOUT*CONJG(ZOUT))
+      END DO
+      DPDS=DPDS/DBLE(NFRAMES)
+      CALL DFFTW_DESTROY_PLAN(PLAN)
+      RETURN
+      END SUBROUTINE GETPDS

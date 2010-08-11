@@ -1,5 +1,12 @@
 all: average ssa deconvwnr isa si sm
 
+test_sm: test_sm.o libspeckle.o smrec.o
+	gfortran -o test_sm test_sm.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas
+
+test_sm.o: test_sm.f
+	gfortran -O3 -c -o test_sm.o test_sm.f -I/usr/local/include
+
 sm: sm.o libspeckle.o smrec.o
 	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas

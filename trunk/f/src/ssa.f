@@ -24,7 +24,7 @@ C  =============
       INTEGER :: STATUS,UNIT,FPIXELS(3),LPIXELS(3),NAXES(3)
       INTEGER :: K,NPIXELS
       DOUBLE PRECISION :: DR,DSNR
-      DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: WORK(:),DAVG(:),
+      DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: DAVG(:),
      &  DCLN(:),DB(:)
       DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: DIMG(:,:),
      &  DBG(:,:)
@@ -62,7 +62,6 @@ C    ==================================
 C    Allocate the space:
 C    ===================
       ALLOCATE(DAVG(NPIXELS))
-      ALLOCATE(WORK(NPIXELS))
       ALLOCATE(DIMG(NAXES(1),NAXES(2)))
       ALLOCATE(DBG(NAXES(1),NAXES(2)))
       ALLOCATE(DCLN(NPIXELS))
@@ -70,7 +69,7 @@ C    ===================
 C    Calculate the average of all the frames:
 C    ========================================
       PRINT *,'Average of the frames:'
-      CALL AVERAGE(INFILE,FPIXELS,LPIXELS,DAVG,WORK)
+      CALL AVERAGE(INFILE,FPIXELS,LPIXELS,DAVG,100)
       AVGFILE=TRIM(PREFIX)//'_AVG.FITS'
       CALL WRITEIMAGE(AVGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DAVG)
       PRINT *,'  Output: ',TRIM(AVGFILE)
@@ -136,14 +135,13 @@ C      ======================
 C    Simple shift-and-add:
 C    =====================
       PRINT *,'Simple shift-and-add:'
-      CALL SSAREC(INFILE,FPIXELS,LPIXELS,DIMG,DBG,WORK)
+      CALL SSAREC(INFILE,FPIXELS,LPIXELS,DIMG,DBG)
       OUTFILE=TRIM(PREFIX)//'_SSA.FITS'
       CALL WRITEIMAGE(OUTFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
       PRINT *,'    Output: ',TRIM(OUTFILE)
 C    Deallocate space:
 C    =================
       DEALLOCATE(DIMG)
-      DEALLOCATE(WORK)
       DEALLOCATE(DCLN)
       DEALLOCATE(DBG)
       DEALLOCATE(DAVG)

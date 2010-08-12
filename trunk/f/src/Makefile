@@ -8,10 +8,6 @@ simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
-smisatest: smisatest.o libspeckle.o smrec.o
-	gfortran -o smisatest smisatest.o libspeckle.o smrec.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
 smtest: smtest.o libspeckle.o smrec.o
 	gfortran -o smtest smtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -46,9 +42,6 @@ average: average.o libspeckle.o
 
 sirec.o: sirec.f
 	gfortran $(COPTIONS) -c -o sirec.o sirec.f $(CFLAGS)
-
-smisatest.o: smisatest.f
-	gfortran $(COPTIONS) -c -o smisatest.o smisatest.f $(CFLAGS)
 
 smrec.o: smrec.f
 	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)

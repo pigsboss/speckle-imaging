@@ -92,7 +92,7 @@ C      ======================
       DCLN=DCLN/DBLE(NPIXELS)*SUM(DCLN)
       CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DCLN)
       PRINT *,'    Clean image: ',TRIM(CLNFILE)
-      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,0)
+      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,'P0')
       WRITE(*,'(A,ES10.3)') '     SNR: ',DSNR
 C      Using 2nd polynomials:
 C      ======================
@@ -111,7 +111,7 @@ C      ======================
       DCLN=DCLN/DBLE(NPIXELS)*SUM(DCLN)
       CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DCLN)
       PRINT *,'    Clean image: ',TRIM(CLNFILE)
-      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,2)
+      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,'P2')
       WRITE(*,'(A,ES10.3)') '     SNR: ',DSNR
 C      Using 4th polynomials:
 C      ======================
@@ -130,7 +130,7 @@ C      ======================
       DCLN=DCLN/DBLE(NPIXELS)*SUM(DCLN)
       CALL WRITEIMAGE(CLNFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DCLN)
       PRINT *,'    Clean image: ',TRIM(CLNFILE)
-      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,4)
+      CALL GETSNR(NAXES(1),NAXES(2),DR,DSNR,DIMG,'P4')
       WRITE(*,'(A,ES10.3)') '     SNR: ',DSNR
 C    Simple shift-and-add:
 C    =====================

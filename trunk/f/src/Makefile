@@ -1,4 +1,4 @@
-CFLAGS=-L/usr/local/lib:/usr/lib -L/usr/lib -L/usr/local/lib -I/usr/local/include -I/usr/include -I~/usr/local/include -I~/usr/include
+CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
 COPTIONS=-O3
 

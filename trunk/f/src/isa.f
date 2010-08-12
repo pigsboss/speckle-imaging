@@ -5,7 +5,7 @@ C
 C  Usage:
 C  ======
 C  isa file_obs first_row,first_col,first_frm last_row,last_col,last_frm
-C    file_ref file_bg file_init radius pad_size num_it prefix
+C    file_ref file_bg file_init radius num_it prefix
 C
 C  Argument:
 C  =========
@@ -20,14 +20,14 @@ C  4.    file_ref   - pre-processed reference star fits file.
 C  5.    file_bg    - estimate background fits file.
 C  6.    file_init  - initial estimate fits file.
 C  7.    radius     - radius of the border of signal on the image.
-C  8.    pad_size   - pad matrices to the size p x p for fast fourier transform.
-C  9.    num_it     - number of iterations.
-C 10.    prefix     - prefix of output filename.
+C  8.    num_it     - number of iterations.
+C  9.    prefix     - prefix of output filename.
 C
 C  Declarations:
 C  =============
+      IMPLICIT NONE
       INTEGER :: FPIXELS(3),LPIXELS(3),M,N,NUMIT,P
-      DOUBLE PRECISION :: DR
+      DOUBLE PRECISION :: DR,DTMP
       DOUBLE PRECISION, ALLOCATABLE :: DREF(:,:),DISA(:,:),DBG(:,:)
       CHARACTER*(256) :: OBSFILE,REFFILE,INITFILE,PREFIX,ARG,BGFILE
 C
@@ -44,15 +44,20 @@ C  ===================================
       CALL GETARG(7,ARG)
       READ(ARG,*) DR
       CALL GETARG(8,ARG)
-      READ(ARG,*) P
-      CALL GETARG(9,ARG)
       READ(ARG,*) NUMIT
-      CALL GETARG(10,PREFIX)
+      CALL GETARG(9,PREFIX)
 C
 C  Main routine starts here:
 C  =========================
       M=LPIXELS(1)-FPIXELS(1)+1
       N=LPIXELS(2)-FPIXELS(2)+1
+      P=MAX(M,N)
+      DTMP=DEXP(CEILING(DLOG(DBLE(P))/DLOG(2.D0))*DLOG(2.D0))
+      IF (DTMP-FLOOR(DTMP) .GE. 0.D5)THEN
+        P=INT(FLOOR(DTMP)+1)
+      ELSE
+        P=INT(FLOOR(DTMP))
+      END IF
       ALLOCATE(DREF(M,N))
       ALLOCATE(DBG(M,N))
       ALLOCATE(DISA(M,N))

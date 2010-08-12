@@ -5,7 +5,7 @@ C  Usage:
 C  ======
 C  sm file_obs fpixels_obs lpixels_obs radius_obs
 C    file_ref fpixels_ref lpixels_ref radius_ref
-C    fit_method p_size max_width prefix
+C    fit_method max_width prefix
 C
 C  Declaration:
 C  ============
@@ -14,7 +14,7 @@ C  ============
       INTEGER :: FPOBS(3),LPOBS(3),FPREF(3),LPREF(3),
      &  P,MW,BUFFERSIZE,M,N,NBISP,K,L
       INTEGER*8 :: PLAN
-      DOUBLE PRECISION :: DROBS,DRREF,DSNR
+      DOUBLE PRECISION :: DROBS,DRREF,DSNR,DTMP
       DOUBLE PRECISION, ALLOCATABLE :: DAVG(:,:),DBETA(:),DPHI(:,:)
      &  ,DRHO(:,:),DPSDOBS(:,:),DPSDREF(:,:),DSM(:,:)
       DOUBLE COMPLEX :: ZTMP
@@ -42,15 +42,21 @@ C
       READ(ARG,*) DRREF
       CALL GETARG(9,FTMETHOD)
       CALL GETARG(10,ARG)
-      READ(ARG,*) P
-      CALL GETARG(11,ARG)
       READ(ARG,*) MW
-      CALL GETARG(12,PREFIX)
+      CALL GETARG(11,PREFIX)
 C  The padding size must be even:
-      P=INT(CEILING(DBLE(P)/DBLE(2))*DBLE(2))
-      NBISP=(MW+1)*(2*P-MW)*P*(P+2)/8
       M=LPOBS(1)-FPOBS(1)+1
       N=LPOBS(2)-FPOBS(2)+1
+      P=MAX(M,N)
+      DTMP=DEXP(CEILING(DLOG(DBLE(P))/DLOG(2.D0))*DLOG(2.D0))
+      IF (DTMP-FLOOR(DTMP) .GE. 0.D5)THEN
+        P=INT(FLOOR(DTMP)+1)
+      ELSE
+        P=INT(FLOOR(DTMP))
+      END IF
+      NBISP=(MW+1)*(2*P-MW)*P*(P+2)/8
+      PRINT *,'Padding size: ',P
+      PRINT *,'Bispectrum size (MB): ',DBLE(NBISP)*16/1024/1024
       ALLOCATE(DAVG(M,N))
       CALL AVERAGE(FILEOBS,FPOBS,LPOBS,DAVG,10)
       CALL GETSNR(M,N,DROBS,DSNR,DAVG,FTMETHOD)

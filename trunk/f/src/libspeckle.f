@@ -69,7 +69,7 @@ C ******************************************************************************
       CALL FTOPEN(UNIT,FILENAME,READWRITE,BLOCKSIZE,STATUS)
       CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
       IF (NFOUND .NE. 3)THEN
-        PRINT *,'READIMAGE FAILED TO READ THE NAXISN KEYWORDS.'
+        PRINT *,'READIMAGE failed to read the NAXIS keywords.'
         RETURN
       ENDIF
       GROUP=1
@@ -636,3 +636,42 @@ C ******************************************************************************
       CALL WRITEIMAGE('CLEAN_RESIDUAL.FITS',(/1,1,1/),(/M,N,1/),DRES)
       RETURN
       END SUBROUTINE DECONVCLEAN
+C ******************************************************************************
+      SUBROUTINE APPENDIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP,RWMODE,EXISTS
+      INTEGER :: NAXES(3)
+      DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      STATUS=0
+      CALL FTGIOU(UNIT,STATUS)
+      BLOCKSIZE=1
+      BITPIX=-64
+      NAXIS=3
+      RWMODE=1
+      CALL FTEXIST(FILENAME,EXISTS,STATUS)
+      IF (EXISTS .EQ. 1)THEN
+C       PRINT *,TRIM(FILENAME),' exists.'
+        CALL FTIOPN(UNIT,FILENAME,RWMODE,STATUS)
+        CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+        IF (NFOUND .NE. 3)THEN
+          PRINT *,'APPENDIMAGE failed to read the NAXIS keywords.'
+          RETURN
+        ENDIF
+        NAXES(3)=NAXES(3)+LPIXELS(3)-FPIXELS(3)+1
+        CALL FTUKYJ(UNIT,'NAXIS3',NAXES(3),'length of data axis 3',
+     &    STATUS)
+      ELSE
+C       PRINT *,TRIM(FILENAME),' does not exist.'
+        CALL FTINIT(UNIT,FILENAME,BLOCKSIZE,STATUS)
+        NAXES=LPIXELS-FPIXELS+1
+        CALL FTPHPS(UNIT,BITPIX,NAXIS,NAXES,STATUS)
+      END IF
+      GROUP=1
+      CALL FTPSSD(UNIT,GROUP,NAXIS,NAXES,FPIXELS,LPIXELS,ARRAY,STATUS)
+      CALL FTCLOS(UNIT,STATUS)
+      CALL FTFIOU(UNIT,STATUS)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
+      RETURN
+      END SUBROUTINE APPENDIMAGE
+C ******************************************************************************

@@ -32,8 +32,8 @@ C  9.  pad_size      - pad all frames to this size before executing FFT.
 C 10.  fit_method    - P0, P2, or P4.
 C 11.  prefix        - prefix of output filename.
 C
-      INTEGER :: FPOBS(3),LPOBS(3),FPREF(3),LPREF(3),P,FTMETHOD
-      CHARACTER(LEN=256) :: OBSFILE,REFFILE,PREFIX,ARG
+      INTEGER :: FPOBS(3),LPOBS(3),FPREF(3),LPREF(3),P
+      CHARACTER(LEN=256) :: OBSFILE,REFFILE,PREFIX,ARG,FTMETHOD
       DOUBLE PRECISION :: DROBS,DRREF
       DOUBLE PRECISION, ALLOCATABLE :: DACF(:,:)
       CALL GETARG(1,OBSFILE)
@@ -52,21 +52,11 @@ C
       READ(ARG,*) DRREF
       CALL GETARG(9,ARG)
       READ(ARG,*) P
-      CALL GETARG(10,ARG)
-      IF (TRIM(ARG) .EQ. 'P0')THEN
-        FTMETHOD=0
-      ELSE IF (TRIM(ARG) .EQ. 'P2')THEN
-        FTMETHOD=2
-      ELSE IF (TRIM(ARG) .EQ. 'P4')THEN
-        FTMETHOD=4
-      ELSE
-        PRINT *,'Unknown fitting method ',TRIM(ARG)
-        RETURN
-      END IF
+      CALL GETARG(10,FTMETHOD)
       CALL GETARG(11,PREFIX)
       ALLOCATE(DACF(P,P))
       CALL SIREC(OBSFILE,FPOBS,LPOBS,DROBS,
-     &  REFFILE,FPREF,LPREF,DRREF,P,FTMETHOD,DACF)
+     &  REFFILE,FPREF,LPREF,DRREF,P,TRIM(FTMETHOD),DACF)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_ACF.FITS',
      &  (/1,1,1/),(/P,P,1/),DACF)
       DEALLOCATE(DACF)

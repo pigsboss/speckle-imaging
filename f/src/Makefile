@@ -2,7 +2,15 @@ CFLAGS=-L/usr/local/lib:/usr/lib -L/usr/lib -L/usr/local/lib -I/usr/local/includ
 
 COPTIONS=-O3
 
-all: average ssa deconvwnr isa si sm deconvclean smtest
+all: average ssa deconvwnr isa si sm deconvclean smtest simobs
+
+simobs: simobs.o libspeckle.o
+	gfortran -o simobs simobs.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+smisatest: smisatest.o libspeckle.o smrec.o
+	gfortran -o smisatest smisatest.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 smtest: smtest.o libspeckle.o smrec.o
 	gfortran -o smtest smtest.o libspeckle.o smrec.o -lcfitsio \
@@ -39,6 +47,9 @@ average: average.o libspeckle.o
 sirec.o: sirec.f
 	gfortran $(COPTIONS) -c -o sirec.o sirec.f $(CFLAGS)
 
+smisatest.o: smisatest.f
+	gfortran $(COPTIONS) -c -o smisatest.o smisatest.f $(CFLAGS)
+
 smrec.o: smrec.f
 	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)
 
@@ -74,6 +85,9 @@ isa.o: isa.f
 
 smtest.o: smtest.f
 	gfortran $(COPTIONS) -c -o smtest.o smtest.f $(CFLAGS)
+
+simobs.o: simobs.f
+	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)
 
 clean:
 	rm *.o

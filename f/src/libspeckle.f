@@ -530,10 +530,10 @@ C
       END SUBROUTINE DCORR2D
 
 C ******************************************************************************
-      SUBROUTINE GETPDS(FILENAME,FPIXELS,LPIXELS,DR,P,FTMETHOD,DPDS)
+      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DR,P,FTMETHOD,DPSD)
 C  Purpose:
 C  ========
-C  Get the mean power density spectrum of all frames in the given FITS file.
+C  Get the mean power spectral density of all frames in the given FITS file.
 C
 C  Declarations:
 C  =============
@@ -541,7 +541,7 @@ C  =============
       INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES
       INTEGER*8 :: PLAN
       INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3),P
-      DOUBLE PRECISION, INTENT(OUT) :: DPDS(P,P)
+      DOUBLE PRECISION, INTENT(OUT) :: DPSD(P,P)
       DOUBLE PRECISION, 
      &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
      &  WORK,DBG,DB
@@ -582,16 +582,57 @@ C     DBG=DBG-MINVAL(DBG)
       CALL DFFTW_PLAN_DFT_2D(PLAN,P,P,ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
       PRINT *,'Finished planning.'
-      DPDS=0
+      DPSD=0
       DO K=FPIXELS(3),LPIXELS(3)
         CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),K/),
      &    (/LPIXELS(1),LPIXELS(2),K/),WORK)
         ZIN=CMPLX(WORK/SUM(WORK)*DBLE(NPIXELS)-DBG)
         CALL ZIFFTSHIFT(P,P,ZIN)
         CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
-        DPDS=DPDS+DBLE(ZOUT*CONJG(ZOUT))
+        DPSD=DPSD+DBLE(ZOUT*CONJG(ZOUT))
       END DO
-      DPDS=DPDS/DBLE(NFRAMES)
+      DPSD=DPSD/DBLE(NFRAMES)
       CALL DFFTW_DESTROY_PLAN(PLAN)
       RETURN
-      END SUBROUTINE GETPDS
+      END SUBROUTINE GETPSD
+C ******************************************************************************
+      SUBROUTINE DECONVCLEAN(M,N,DG,DF,DH,DBETA,MNUMIT)
+      INTEGER, INTENT(IN) :: M,N
+      INTEGER :: X,Y,XC,YC,K,L,MNUMIT
+      DOUBLE PRECISION, INTENT(IN) :: DG(M,N),DH(M,N),DBETA
+      DOUBLE PRECISION, INTENT(OUT) :: DF(M,N)
+      DOUBLE PRECISION :: DRES(M,N),DPDF(M,N),DSNR,DR
+      XC=INT(CEILING(0.5*DBLE(N+1)))
+      YC=INT(CEILING(0.5*DBLE(M+1)))
+      DR=DBLE(0.5)*DBLE(MIN(M,N))
+      X=MAXLOC(MAXVAL(DH,1),2)
+      Y=MAXLOC(MAXVAL(DH,2),1)
+      DPDF=EOSHIFT(EOSHIFT(DH,Y-YC,DBLE(0),1),X-XC,DBLE(0),2)
+      DPDF=DPDF/SUM(DPDF)
+      DRES=DG
+      L=1
+      DO K=1,MNUMIT
+        L=L+1
+        X=MAXLOC(MAXVAL(DRES,1),2)
+        Y=MAXLOC(MAXVAL(DRES,2),1)
+        DF(Y,X)=DF(Y,X)+DRES(Y,X)*DBETA
+        DRES=DRES-DRES(Y,X)*DBETA*EOSHIFT(EOSHIFT(DPDF,YC-Y,DBLE(0),1),
+     &    XC-X,DBLE(0),2)
+        IF (SUM(DRES) .LE. 0)THEN
+          EXIT
+        END IF
+        IF (L .GT. 100)THEN
+          L=1
+          PRINT *,'Loop: ',K
+          CALL GETSNR(M,N,DR,DSNR,DRES,'P4')
+          WRITE (*,'(A,ES10.3)') ' Residual SNR:',DSNR
+          WRITE (*,'(A,ES10.3,A,ES10.3,A,ES10.3)')
+     &     ' Residual sum:',SUM(DRES),
+     &      ', CLEAN sum:',SUM(DF),', Total sum:',SUM(DF)+SUM(DRES)
+          WRITE (*,'(A,I3,A,I3,A,ES10.3,ES10.3)')
+     &      ' Maxima: (',X,',',Y,'),',MAXVAL(DRES),DRES(Y,X)
+        END IF
+      END DO
+      CALL WRITEIMAGE('CLEAN_RESIDUAL.FITS',(/1,1,1/),(/M,N,1/),DRES)
+      RETURN
+      END SUBROUTINE DECONVCLEAN

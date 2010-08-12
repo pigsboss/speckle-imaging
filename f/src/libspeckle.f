@@ -601,14 +601,14 @@ C ******************************************************************************
       INTEGER :: X,Y,XC,YC,K,L,MNUMIT
       DOUBLE PRECISION, INTENT(IN) :: DG(M,N),DH(M,N),DBETA
       DOUBLE PRECISION, INTENT(OUT) :: DF(M,N)
-      DOUBLE PRECISION :: DRES(M,N),DPDF(M,N),DSNR,DR
+      DOUBLE PRECISION :: DRES(M,N),DPSF(M,N),DSNR,DR
       XC=INT(CEILING(0.5*DBLE(N+1)))
       YC=INT(CEILING(0.5*DBLE(M+1)))
       DR=DBLE(0.5)*DBLE(MIN(M,N))
       X=MAXLOC(MAXVAL(DH,1),2)
       Y=MAXLOC(MAXVAL(DH,2),1)
-      DPDF=EOSHIFT(EOSHIFT(DH,Y-YC,DBLE(0),1),X-XC,DBLE(0),2)
-      DPDF=DPDF/SUM(DPDF)
+      DPSF=EOSHIFT(EOSHIFT(DH,Y-YC,DBLE(0),1),X-XC,DBLE(0),2)
+      DPSF=DPSF/SUM(DPSF)
       DRES=DG
       L=1
       DO K=1,MNUMIT
@@ -616,7 +616,7 @@ C ******************************************************************************
         X=MAXLOC(MAXVAL(DRES,1),2)
         Y=MAXLOC(MAXVAL(DRES,2),1)
         DF(Y,X)=DF(Y,X)+DRES(Y,X)*DBETA
-        DRES=DRES-DRES(Y,X)*DBETA*EOSHIFT(EOSHIFT(DPDF,YC-Y,DBLE(0),1),
+        DRES=DRES-DRES(Y,X)*DBETA*EOSHIFT(EOSHIFT(DPSF,YC-Y,DBLE(0),1),
      &    XC-X,DBLE(0),2)
         IF (SUM(DRES) .LE. 0)THEN
           EXIT

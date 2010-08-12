@@ -1,68 +1,79 @@
-all: average ssa deconvwnr isa si sm
+CFLAGS=-L/usr/local/lib:/usr/lib -L/usr/lib -L/usr/local/lib -I/usr/local/include -I/usr/include -I~/usr/local/include -I~/usr/include
 
-test_sm: test_sm.o libspeckle.o smrec.o
-	gfortran -o test_sm test_sm.o libspeckle.o smrec.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas
+COPTIONS=-O3
 
-test_sm.o: test_sm.f
-	gfortran -O3 -c -o test_sm.o test_sm.f -I/usr/local/include
+all: average ssa deconvwnr isa si sm deconvclean smtest
+
+smtest: smtest.o libspeckle.o smrec.o
+	gfortran -o smtest smtest.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 sm: sm.o libspeckle.o smrec.o
 	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 si: si.o libspeckle.o sirec.o
 	gfortran -o si si.o libspeckle.o sirec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 isa: isa.o libspeckle.o isarec.o
 	gfortran -o isa isa.o libspeckle.o isarec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 deconvwnr: deconvwnr.o libspeckle.o
 	gfortran -o deconvwnr deconvwnr.o libspeckle.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+deconvclean: deconvclean.o libspeckle.o
+	gfortran -o deconvclean deconvclean.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 ssa: ssa.o libspeckle.o ssarec.o
 	gfortran -o ssa ssa.o libspeckle.o ssarec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 average: average.o libspeckle.o
 	gfortran -o average average.o libspeckle.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 sirec.o: sirec.f
-	gfortran -O3 -c -o sirec.o sirec.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o sirec.o sirec.f $(CFLAGS)
 
 smrec.o: smrec.f
-	gfortran -O3 -c -o smrec.o smrec.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)
 
 si.o: si.f
-	gfortran -O3 -c -o si.o si.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o si.o si.f $(CFLAGS)
 
 sm.o: sm.f
-	gfortran -O3 -c -o sm.o sm.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o sm.o sm.f $(CFLAGS)
 
 libspeckle.o: libspeckle.f
-	gfortran -O3 -c -o libspeckle.o libspeckle.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o libspeckle.o libspeckle.f $(CFLAGS)
+
+deconvclean.o: deconvclean.f
+	gfortran $(COPTIONS) -c -o deconvclean.o deconvclean.f $(CFLAGS)
 
 deconvwnr.o: deconvwnr.f
-	gfortran -O3 -c -o deconvwnr.o deconvwnr.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o deconvwnr.o deconvwnr.f $(CFLAGS)
 
 ssarec.o: ssarec.f
-	gfortran -O3 -c -o ssarec.o ssarec.f
+	gfortran $(COPTIONS) -c -o ssarec.o ssarec.f $(CFLAGS)
 
 ssa.o: ssa.f
-	gfortran -O3 -c -o ssa.o ssa.f
+	gfortran $(COPTIONS) -c -o ssa.o ssa.f $(CFLAGS)
 
 average.o: average.f
-	gfortran -O3 -c -o average.o average.f
+	gfortran $(COPTIONS) -c -o average.o average.f $(CFLAGS)
 
 isarec.o: isarec.f
-	gfortran -O3 -c -o isarec.o isarec.f -I/usr/local/include
+	gfortran $(COPTIONS) -c -o isarec.o isarec.f $(CFLAGS)
 
 isa.o: isa.f
-	gfortran -O3 -c -o isa.o isa.f
+	gfortran $(COPTIONS) -c -o isa.o isa.f $(CFLAGS)
+
+smtest.o: smtest.f
+	gfortran $(COPTIONS) -c -o smtest.o smtest.f $(CFLAGS)
 
 clean:
 	rm *.o

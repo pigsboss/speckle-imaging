@@ -51,13 +51,6 @@ C  Main routine starts here:
 C  =========================
       M=LPIXELS(1)-FPIXELS(1)+1
       N=LPIXELS(2)-FPIXELS(2)+1
-      P=MAX(M,N)
-      DTMP=DEXP(CEILING(DLOG(DBLE(P))/DLOG(2.D0))*DLOG(2.D0))
-      IF (DTMP-FLOOR(DTMP) .GE. 0.D5)THEN
-        P=INT(FLOOR(DTMP)+1)
-      ELSE
-        P=INT(FLOOR(DTMP))
-      END IF
       ALLOCATE(DREF(M,N))
       ALLOCATE(DBG(M,N))
       ALLOCATE(DISA(M,N))
@@ -65,7 +58,7 @@ C  =========================
       CALL READIMAGE(BGFILE,(/1,1,1/),(/M,N,1/),DBG)
       CALL READIMAGE(INITFILE,(/1,1,1/),(/M,N,1/),DISA)
       CALL ISAREC(OBSFILE,FPIXELS,LPIXELS,M,N,DREF,DBG,DISA,DR,
-     &  P,NUMIT,PREFIX)
+     &  NUMIT,PREFIX)
       DEALLOCATE(DREF)
       DEALLOCATE(DBG)
       DEALLOCATE(DISA)

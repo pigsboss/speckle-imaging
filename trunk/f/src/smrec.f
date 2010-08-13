@@ -1,4 +1,4 @@
-      SUBROUTINE BISPECTRUM(FILENAME,FPIXELS,LPIXELS,MW,ZBISP)
+      SUBROUTINE BISPECTRUM(FILENAME,FPIXELS,LPIXELS,MW,DBG,ZBISP)
 C  Calculate the mean bispectrum of all
 C  the frames.
 C
@@ -21,6 +21,8 @@ C  =============
       INTEGER*8 :: PLAN
       DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
       DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:,:,:)
+      DOUBLE PRECISION, INTENT(IN) :: DBG(LPIXELS(1)-FPIXELS(1)+1,
+     &  LPIXELS(1)-FPIXELS(1)+1)
       DOUBLE COMPLEX, DIMENSION(0:LPIXELS(1)-FPIXELS(1),
      &  0:LPIXELS(2)-FPIXELS(2)) :: ZIN,ZOUT,ZSP
       CHARACTER*(*), INTENT(IN) :: FILENAME
@@ -44,6 +46,7 @@ C  ===========
 C  Determine the length of the buffer:
       LBUFFER=INT(FLOOR(DBLE(BUFFERSIZE)*1024*1024/DBLE(8*NPIXELS)))
 C  Calculate bispectrum:
+      PRINT *,'Calculate the bispectrum.'
       CALL DFFTW_INIT_THREADS(INFO)
       IF (INFO .EQ. 0)THEN
         PRINT *,'DFFTW_INIT_THREADS failed.'
@@ -67,7 +70,15 @@ C  Calculate bispectrum:
         CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),LF/),
      &    (/LPIXELS(1),LPIXELS(2),LT/),BUFFER(1:M,1:N,1:LBUFFER))
         DO K=1,LR
-          ZIN=CMPLX(BUFFER(1:M,1:N,K))
+          WRITE(*,'(A,I7,A,I7)') ' Processing ',K+LF-1,' of ',NFRAMES
+          ZIN=CMPLX(BUFFER(1:M,1:N,K)-DBG)
+          DO I1=0,M-1
+            DO J1=0,N-1
+              IF (ZABS(ZIN(I1,J1)).LT.DBLE(0))THEN
+                ZIN(I1,J1)=CMPLX(0)
+              END IF
+            END DO
+          END DO
           CALL ZIFFTSHIFT(M,N,ZIN)
           CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
           ZSP=ZOUT
@@ -88,7 +99,7 @@ C  Calculate bispectrum:
       END DO
       DEALLOCATE(BUFFER)
       ZBISP(1:LBISP)=ZBISP(1:LBISP)/DBLE(NFRAMES)
-      PRINT *,'Return from BISPECTRUM'
+      PRINT *,'Finished calculating the bispectrum.'
       RETURN
       END SUBROUTINE BISPECTRUM
 C ******************************************************************************

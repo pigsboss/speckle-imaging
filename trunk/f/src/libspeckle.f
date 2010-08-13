@@ -530,7 +530,7 @@ C
       END SUBROUTINE DCORR2D
 
 C ******************************************************************************
-      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DR,P,FTMETHOD,DPSD)
+      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DR,FTMETHOD,DPSD)
 C  Purpose:
 C  ========
 C  Get the mean power spectral density of all frames in the given FITS file.
@@ -540,13 +540,16 @@ C  =============
       INCLUDE 'fftw3.f'
       INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES
       INTEGER*8 :: PLAN
-      INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3),P
-      DOUBLE PRECISION, INTENT(OUT) :: DPSD(P,P)
+      INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DPSD(LPIXELS(1)-FPIXELS(1)+1,
+     &  LPIXELS(2)-FPIXELS(2)+1)
       DOUBLE PRECISION, 
      &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
      &  WORK,DBG,DB
       DOUBLE PRECISION, INTENT(IN) :: DR
-      DOUBLE COMPLEX :: ZIN(P,P),ZOUT(P,P)
+      DOUBLE COMPLEX,
+     &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
+     &  ZIN,ZOUT
       CHARACTER*(*), INTENT(IN) :: FILENAME,FTMETHOD
 C  Statements:
 C  ===========
@@ -579,7 +582,7 @@ C     DBG=DBG-MINVAL(DBG)
         PRINT *,'DFFTW_IMPORT_SYSTEM_WISDOM failed.'
       END IF
       PRINT *,'Start planning.'
-      CALL DFFTW_PLAN_DFT_2D(PLAN,P,P,ZIN,ZOUT,-1,
+      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
       PRINT *,'Finished planning.'
       DPSD=0
@@ -587,7 +590,7 @@ C     DBG=DBG-MINVAL(DBG)
         CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),K/),
      &    (/LPIXELS(1),LPIXELS(2),K/),WORK)
         ZIN=CMPLX(WORK/SUM(WORK)*DBLE(NPIXELS)-DBG)
-        CALL ZIFFTSHIFT(P,P,ZIN)
+        CALL ZIFFTSHIFT(M,N,ZIN)
         CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
         DPSD=DPSD+DBLE(ZOUT*CONJG(ZOUT))
       END DO
@@ -674,4 +677,3 @@ C       PRINT *,TRIM(FILENAME),' does not exist.'
       IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
       END SUBROUTINE APPENDIMAGE
-C ******************************************************************************

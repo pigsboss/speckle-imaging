@@ -2,7 +2,15 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: average ssa deconvwnr isa si sm deconvclean smtest simobs buildsmtest
+all: average ssa deconvwnr isa si sm deconvclean smtest simobs buildsmtest rhotest
+
+ffttest: ffttest.o libspeckle.o
+	gfortran -o ffttest ffttest.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+rhotest: rhotest.o libspeckle.o
+	gfortran -o rhotest rhotest.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o smrec.o -lcfitsio \
@@ -88,6 +96,12 @@ smtest.o: smtest.f
 
 simobs.o: simobs.f
 	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)
+
+rhotest.o: rhotest.f
+	gfortran $(COPTIONS) -c -o rhotest.o rhotest.f $(CFLAGS)
+
+ffttest.o: ffttest.f
+	gfortran $(COPTIONS) -c -o ffttest.o ffttest.f $(CFLAGS)
 
 clean:
 	rm *.o

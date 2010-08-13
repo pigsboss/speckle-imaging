@@ -538,7 +538,7 @@ C
 C  Declarations:
 C  =============
       INCLUDE 'fftw3.f'
-      INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES
+      INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES,I,J
       INTEGER*8 :: PLAN
       INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3)
       DOUBLE PRECISION, INTENT(OUT) :: DPSD(LPIXELS(1)-FPIXELS(1)+1,
@@ -557,7 +557,7 @@ C  ===========
       N=LPIXELS(2)-FPIXELS(2)+1
       NPIXELS=M*N
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
-      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,WORK,100)
+      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,WORK,10)
       IF (FTMETHOD .EQ. 'P0')THEN
         CALL BGFIT2P0(M,N,DR,WORK,DBG,DB(1,1))
       ELSE IF (FTMETHOD .EQ. 'P2') THEN
@@ -565,7 +565,7 @@ C  ===========
       ELSE IF (FTMETHOD .EQ. 'P4') THEN
         CALL BGFIT2P4(M,N,DR,WORK,DBG,DB)
       ELSE
-        PRINT *,'Unknown fitting method.'
+        PRINT *,'Unknown fitting method.',FTMETHOD
         RETURN
       END IF
 C  subtract the minimum value (the most negative value) of the background
@@ -590,6 +590,13 @@ C     DBG=DBG-MINVAL(DBG)
         CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),K/),
      &    (/LPIXELS(1),LPIXELS(2),K/),WORK)
         ZIN=CMPLX(WORK/SUM(WORK)*DBLE(NPIXELS)-DBG)
+        DO I=1,M
+          DO J=1,N
+            IF (ZABS(ZIN(I,J)).LT.DBLE(0))THEN
+              ZIN(I,J)=CMPLX(0)
+            END IF
+          END DO
+        END DO
         CALL ZIFFTSHIFT(M,N,ZIN)
         CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
         DPSD=DPSD+DBLE(ZOUT*CONJG(ZOUT))

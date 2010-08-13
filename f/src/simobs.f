@@ -53,7 +53,7 @@
       PRINT *,'Finished planning.'
 C  Setup the source:
       DOBJ(1,1)=100.D0
-      DOBJ(9,10)=50.D0
+      DOBJ(10,10)=50.D0
       CALL DFFTSHIFT(M,N,DOBJ)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_OBJ.FITS',
      &  (/1,1,1/),(/M,N,1/),DOBJ)

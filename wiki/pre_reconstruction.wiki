@@ -1,0 +1,13 @@
+#summary : essential routines & programs called before various reconstruction routines.
+
+= Introduction =
+
+Before various reconstruction routines such as speckle interferometry, speckle masking, or shift-and-add methods being called the direct observation results should be regulated first to meet the requirements of those reconstruction algorithms.
+
+
+= Details =
+
+Add your content here.  Format your content with:
+  * Text in *bold* or _italic_
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages

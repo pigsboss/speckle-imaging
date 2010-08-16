@@ -1,4 +1,4 @@
-#summary : essential routines & programs called before various reconstruction routines.
+#summary essential routines & programs called before various reconstruction routines.
 
 = Introduction =
 
@@ -7,7 +7,7 @@ Before various reconstruction routines such as speckle interferometry, speckle m
 
 = Details =
 
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+The following parts are contained:
+  * Noise (unwanted signal) level evaluation
+  * Background subtraction
+  * Subset of image selection and extraction

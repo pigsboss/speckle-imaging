@@ -2,7 +2,16 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: average ssa deconvwnr isa si sm deconvclean smtest simobs buildsmtest
+all: average ssa deconvwnr isa si sm deconvclean smtest simobs buildsmtest \
+ffc subimage
+
+subimage: subimage.o libspeckle.o
+	gfortran -o subimage subimage.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+ffc: ffc.o libspeckle.o
+	gfortran -o ffc ffc.o libspeckle.o smrec.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o smrec.o -lcfitsio \
@@ -44,6 +53,9 @@ average: average.o libspeckle.o
 	gfortran -o average average.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+ffc.o: ffc.f
+	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)
+
 sirec.o: sirec.f
 	gfortran $(COPTIONS) -c -o sirec.o sirec.f $(CFLAGS)
 
@@ -64,6 +76,9 @@ deconvclean.o: deconvclean.f
 
 deconvwnr.o: deconvwnr.f
 	gfortran $(COPTIONS) -c -o deconvwnr.o deconvwnr.f $(CFLAGS)
+
+subimage.o: subimage.f
+	gfortran $(COPTIONS) -c -o subimage.o subimage.f $(CFLAGS)
 
 ssarec.o: ssarec.f
 	gfortran $(COPTIONS) -c -o ssarec.o ssarec.f $(CFLAGS)

@@ -1,6 +1,6 @@
 #summary essential routines & programs called before various reconstruction routines.
 
-= Introduction =
+= Pre-reconstruction programs =
 
 Before various reconstruction routines such as speckle interferometry, speckle masking, or shift-and-add methods being called the direct observation results should be regulated first to meet the requirements of those reconstruction algorithms.
 

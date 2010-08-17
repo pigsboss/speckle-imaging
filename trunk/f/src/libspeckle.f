@@ -1,26 +1,60 @@
 C ******************************************************************************
-      SUBROUTINE SUBIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE)
+      SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
+      IMPLICIT NONE
+      INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,NAXIS,NFOUND,GROUP
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER*(*), INTENT(IN) :: IMGFILE
+      STATUS=0
+      CALL FTGIOU(UNIT,STATUS)
+      RWMODE=0
+      CALL FTOPEN(UNIT,IMGFILE,RWMODE,BLOCKSIZE,STATUS)
+      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+      IF (NFOUND .NE. 3)THEN
+        PRINT *,'IMAGESIZE failed to read the NAXIS keywords.'
+        RETURN
+      ENDIF
+      CALL FTCLOS(UNIT, STATUS)
+      CALL FTFIOU(UNIT, STATUS)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
+      RETURN
+      END SUBROUTINE IMAGESIZE
+C ******************************************************************************
+      SUBROUTINE SUBIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE,BUFFERSIZE)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      INTEGER :: K,M,N,NPIXELS,NFRAMES
-      DOUBLE PRECISION, ALLOCATABLE :: DIMG(:)
       CHARACTER*(*), INTENT(IN) :: IMGFILE,SUBFILE
+      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
+      INTEGER :: STATUS,K,M,N,NPIXELS,NFRAMES,LBUFFER,NBUFFER
+      INTEGER :: L,L1,L2
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:)
+      STATUS=0
+      CALL DELETEFILE(SUBFILE,STATUS)
       M=LPIXELS(1)-FPIXELS(1)+1
       N=LPIXELS(2)-FPIXELS(2)+1
       NPIXELS=M*N
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
-      ALLOCATE(DIMG(NPIXELS))
-      DO K=1,NFRAMES
-        CALL READIMAGE(IMGFILE,(/FPIXELS(1),FPIXELS(2),FPIXELS(3)+K-1/)
-     &    ,(/LPIXELS(1),LPIXELS(2),FPIXELS(3)+K-1/),DIMG)
-        CALL APPENDIMAGE(SUBFILE,(/1,1,K/),(/M,N,K/),DIMG)
+      IF (PRESENT(BUFFERSIZE))THEN
+        LBUFFER=INT(FLOOR(DBLE(BUFFERSIZE*1024*1024/8)/DBLE(NPIXELS)))
+      ELSE
+        LBUFFER=INT(FLOOR(DBLE(32*1024*1024/8)/DBLE(NPIXELS)))
+      END IF
+      NBUFFER=INT(CEILING(DBLE(NFRAMES)/DBLE(LBUFFER)))
+      ALLOCATE(DBUF(M,N,LBUFFER))
+      DO K=1,NBUFFER
+        L1=(K-1)*LBUFFER+1
+        L2=MIN(K*LBUFFER,NFRAMES)
+C       PRINT *,'READIMAGE from',L1,'to',L2
+        CALL READIMAGE(IMGFILE,(/FPIXELS(1),FPIXELS(2),L1/),
+     &    (/LPIXELS(1),LPIXELS(2),L2/),DBUF)
+        CALL APPENDIMAGE(SUBFILE,(/1,1,L1/),(/M,N,L2/),DBUF)
       END DO
-      DEALLOCATE(DIMG)
+      DEALLOCATE(DBUF)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
       END SUBROUTINE SUBIMAGE
 C ******************************************************************************
-      SUBROUTINE FLATFIELDCORRECT(TARGFILE,FPIXELS,LPIXELS,FLATFILE,
-     &  DARKFILE,CRCTFILE)
+      SUBROUTINE FLATFIELDCORRECT(TARGFILE,FLATFILE,DARKFILE,
+     &  FPIXELS,LPIXELS,CRCTFILE)
 C  Flat-field correction subroutine.
 C
 C  Usage:
@@ -32,51 +66,86 @@ C                 I_original - I_dark
 C  I_corrected = ---------------------
 C                   I_flat - I_dark
 C
-C  Arguments:
-C  ==========
-
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,GROUP,M,N,NPIXELS,NFRAMES
-     &  ,FNFRAMES,DNFRAMES,K
-      INTEGER :: TIMGRECT(4),FIMGRECT(4),DIMGRECT(4),
-     &  TSUBRECT(4),FSUBRECT(4),DSUBRECT(4)
+      INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,GROUP
+      INTEGER :: K,M,N,NPIXELS,NFRAMES,NAXES(3),NFOUND
       DOUBLE PRECISION, ALLOCATABLE :: DFLAT(:),DDARK(:),DTARG(:),
      &  DCRCT(:)
       CHARACTER*(*), INTENT(IN) :: TARGFILE,FLATFILE,DARKFILE,CRCTFILE
       CHARACTER(LEN=256) :: KEYVAL,COMMENT
+      INTERFACE
+      SUBROUTINE AVERAGE(AVGFILE,FPIXELS,LPIXELS,DAVG,BUFFERSIZE)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      INTEGER, INTENT(INOUT), OPTIONAL :: BUFFERSIZE
+      DOUBLE PRECISION :: DAVG(LPIXELS(1)+1-FPIXELS(1),
+     &  LPIXELS(2)+1-FPIXELS(2))
+      CHARACTER*(*), INTENT(IN) :: AVGFILE
+      END SUBROUTINE AVERAGE
+      END INTERFACE
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       RWMODE=0
       CALL FTOPEN(UNIT,TARGFILE,RWMODE,BLOCKSIZE,STATUS)
-      CALL FTGKYS(UNIT,'IMGRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) TIMGRECT
-      CALL FTGKYS(UNIT,'SUBRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) TSUBRECT
+      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+      IF (NFOUND .NE. 3)THEN
+        PRINT *,'FLATFIELDCORRECT failed to read the NAXIS keywords'//
+     &    ' from '//TRIM(TARGFILE)
+        RETURN
+      ENDIF
+      IF ((NAXES(1).LT.LPIXELS(1)) .OR.
+     &  (NAXES(2).LT.LPIXELS(2)))THEN
+        PRINT *,'Specified subimage size exceeds boundary.'
+        RETURN
+      END IF
+      M=NAXES(1)
+      N=NAXES(2)
       CALL FTCLOS(UNIT, STATUS)
       CALL FTOPEN(UNIT,FLATFILE,RWMODE,BLOCKSIZE,STATUS)
-      CALL FTGKYJ(UNIT,'NAXIS3',FNFRAMES,COMMENT,STATUS)
-      CALL FTGKYS(UNIT,'IMGRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) FIMGRECT
-      CALL FTGKYS(UNIT,'SUBRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) FSUBRECT
+      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+      IF (NFOUND .NE. 3)THEN
+        PRINT *,'FLATFIELDCORRECT failed to read the NAXIS keywords'//
+     &    ' from '//TRIM(FLATFILE)
+        RETURN
+      ENDIF
+      IF ((NAXES(1).LT.LPIXELS(1)) .OR.
+     &  (NAXES(2).LT.LPIXELS(2)))THEN
+        PRINT *,'Specified subimage size exceeds boundary.'
+        RETURN
+      END IF
+      IF ((NAXES(1).NE.M) .OR. (NAXES(2).NE.N))THEN
+        PRINT *,TRIM(TARGFILE)//' and '//TRIM(FLATFILE)//
+     &    ' differ in size.'
+        RETURN
+      END IF
       CALL FTCLOS(UNIT, STATUS)
+      ALLOCATE(DFLAT(NAXES(1)*NAXES(2)))
+      CALL AVERAGE(FLATFILE,(/FPIXELS(1),FPIXELS(2),1/),
+     &  (/LPIXELS(1),LPIXELS(2),NAXES(3)/),DFLAT)
       CALL FTOPEN(UNIT,DARKFILE,RWMODE,BLOCKSIZE,STATUS)
-      CALL FTGKYJ(UNIT,'NAXIS3',DNFRAMES,COMMENT,STATUS)
-      CALL FTGKYS(UNIT,'IMGRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) DIMGRECT
-      CALL FTGKYS(UNIT,'SUBRECT',KEYVAL,COMMENT,STATUS)
-      READ(KEYVAL,*) DSUBRECT
+      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+      IF (NFOUND .NE. 3)THEN
+        PRINT *,'FLATFIELDCORRECT failed to read the NAXIS keywords'//
+     &    ' from '//TRIM(DARKFILE)
+        RETURN
+      ENDIF
+      IF ((NAXES(1).LT.LPIXELS(1)) .OR.
+     &  (NAXES(2).LT.LPIXELS(2)))THEN
+        PRINT *,'Specified subimage size exceeds boundary.'
+        RETURN
+      END IF
+      IF ((NAXES(1).NE.M) .OR. (NAXES(2).NE.N))THEN
+        PRINT *,TRIM(TARGFILE)//' and '//TRIM(DARKFILE)//
+     &    ' differ in size.'
+        RETURN
+      END IF
       CALL FTCLOS(UNIT, STATUS)
-      IF ((TSUBRECT(1) .LT. FSUBRECT(1)) .OR.
-     &  (TSUBRECT(2) .GT. FSUBRECT(2)) .OR.
-     &  (TSUBRECT(3) .GT. FSUBRECT(3)) .OR.
-     &  (TSUBRECT(4) .LT. FSUBRECT(4)) .OR.
-     &  (TSUBRECT(1) .LT. DSUBRECT(1)) .OR.
-     &  (TSUBRECT(2) .GT. DSUBRECT(2)) .OR.
-     &  (TSUBRECT(3) .GT. DSUBRECT(3)) .OR.
-     &  (TSUBRECT(4) .LT. DSUBRECT(4)))THEN
-        PRINT *,'Subimage formats do not match.'
+      ALLOCATE(DDARK(NAXES(1)*NAXES(2)))
+      CALL AVERAGE(DARKFILE,(/FPIXELS(1),FPIXELS(2),1/),
+     &  (/LPIXELS(1),LPIXELS(2),NAXES(3)/),DDARK)
+      IF (MAXVAL(DDARK) .GE. MINVAL(DFLAT))THEN
+        PRINT *,'Maximum of dark current larger than or equal'
+     &    //' to minimum of flat field.'
         RETURN
       END IF
       M=LPIXELS(1)-FPIXELS(1)+1
@@ -84,22 +153,8 @@ C  ==========
       NPIXELS=M*N
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
       ALLOCATE(DTARG(NPIXELS))
-      ALLOCATE(DFLAT(NPIXELS))
-      ALLOCATE(DDARK(NPIXELS))
       ALLOCATE(DCRCT(NPIXELS))
-      CALL AVERAGE(FLATFILE,(/FPIXELS(1)+TSUBRECT(1)-FSUBRECT(1),
-     &  FPIXELS(2)+TSUBRECT(4)-FSUBRECT(4),1/),
-     &  (/LPIXELS(1)+TSUBRECT(1)-FSUBRECT(1),
-     &  LPIXELS(2)+TSUBRECT(4)-FSUBRECT(4),FNFRAMES/),DFLAT,10)
-      CALL AVERAGE(DARKFILE,(/FPIXELS(1)+TSUBRECT(1)-DSUBRECT(1),
-     &  FPIXELS(2)+TSUBRECT(4)-DSUBRECT(4),1/),
-     &  (/LPIXELS(1)+TSUBRECT(1)-DSUBRECT(1),
-     &  LPIXELS(2)+TSUBRECT(4)-DSUBRECT(4),DNFRAMES/),DDARK,10)
-      IF (MAXVAL(DDARK) .GE. MINVAL(DFLAT))THEN
-        PRINT *,'Maximum of dark current larger than or equal'
-     &    //' to minimum of flat field.'
-        RETURN
-      END IF
+      CALL DELETEFILE(CRCTFILE,STATUS)
       DO K=FPIXELS(3),LPIXELS(3)
         CALL READIMAGE(TARGFILE,(/FPIXELS(1),FPIXELS(2),K/),
      &    (/LPIXELS(1),LPIXELS(2),K/),DTARG)
@@ -116,7 +171,7 @@ C  ==========
       END SUBROUTINE FLATFIELDCORRECT
 C ******************************************************************************
       SUBROUTINE PRINTERROR(STATUS)
-      INTEGER :: STATUS
+      INTEGER, INTENT(IN) :: STATUS
       CHARACTER :: ERRTEXT*30,ERRMESSAGE*80
       IF (STATUS .LE. 0)RETURN
       CALL FTGERR(STATUS,ERRTEXT)
@@ -130,8 +185,9 @@ C ******************************************************************************
       END SUBROUTINE PRINTERROR
 C ******************************************************************************
       SUBROUTINE DELETEFILE(FILENAME,STATUS)
-      INTEGER :: STATUS,UNIT,BLOCKSIZE
-      CHARACTER*(*) :: FILENAME
+      INTEGER, INTENT(INOUT) :: STATUS
+      INTEGER :: UNIT,BLOCKSIZE
+      CHARACTER*(*), INTENT(IN) :: FILENAME
       IF (STATUS .GT. 0)RETURN
       CALL FTGIOU(UNIT,STATUS)
       CALL FTOPEN(UNIT,FILENAME,1,BLOCKSIZE,STATUS)
@@ -146,12 +202,13 @@ C ******************************************************************************
         CALL FTDELT(UNIT,STATUS)
       END IF
       CALL FTFIOU(UNIT, STATUS)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
       END SUBROUTINE DELETEFILE
 C ******************************************************************************
       SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
-      INTEGER, INTENT(IN) :: FPIXELS(*),LPIXELS(*)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER :: NAXES(3)
       DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
       CHARACTER*(*), INTENT(IN) :: FILENAME
@@ -175,11 +232,14 @@ C ******************************************************************************
       END SUBROUTINE WRITEIMAGE
 C ******************************************************************************
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER :: STATUS,UNIT,READWRITE,BLOCKSIZE,NAXIS,NFOUND
-      INTEGER :: GROUP,FPIXELS(*),LPIXELS(*),INCS(3),NAXES(3)
-      DOUBLE PRECISION :: ARRAY(*),NULLVAL
+      INTEGER :: GROUP,INCS(3),NAXES(3)
+      DOUBLE PRECISION, INTENT(OUT) :: ARRAY(*)
+      DOUBLE PRECISION :: NULLVAL
       LOGICAL :: ANYF
-      CHARACTER*(*) :: FILENAME
+      CHARACTER*(*), INTENT(IN) :: FILENAME
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       READWRITE=0
@@ -210,7 +270,7 @@ C ******************************************************************************
       SUBROUTINE AVERAGE(FILENAME,FPIXELS,LPIXELS,ARRAY,BUFFERSIZE)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      INTEGER, INTENT(IN), OPTIONAL :: BUFFERSIZE
+      INTEGER, INTENT(INOUT), OPTIONAL :: BUFFERSIZE
       INTEGER :: L,LF,LT,LR,K,NPIXELS,M,N,NFRAMES,LBUFFER
       CHARACTER*(*), INTENT(IN) :: FILENAME
       DOUBLE PRECISION, INTENT(OUT) :: ARRAY(LPIXELS(1)-FPIXELS(1)+1,
@@ -220,9 +280,11 @@ C ******************************************************************************
       N=LPIXELS(2)-FPIXELS(2)+1
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
       NPIXELS=M*N
-C     BUFFERSIZE=8
-      LBUFFER=INT(FLOOR(DBLE(BUFFERSIZE)*1024*1024/DBLE(8*NPIXELS)))
-      PRINT *,'Length of buffer: ',LBUFFER,' frames.'
+      IF (PRESENT(BUFFERSIZE))THEN
+        LBUFFER=INT(FLOOR(DBLE(BUFFERSIZE)*1024*128/DBLE(NPIXELS)))
+      ELSE
+        LBUFFER=INT(FLOOR(DBLE(4*1024*1024)/DBLE(NPIXELS)))
+      END IF
       ALLOCATE(BUFFER(M,N,LBUFFER))
       ARRAY=0
       LF=1
@@ -242,7 +304,8 @@ C     BUFFERSIZE=8
       END SUBROUTINE AVERAGE
 C ******************************************************************************
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
-      CHARACTER*(*) :: PATH,BASENAME,EXTNAME
+      CHARACTER*(*), INTENT(IN) :: PATH
+      CHARACTER*(*), INTENT(OUT) :: BASENAME,EXTNAME
       CHARACTER :: FILENAME*80
       INTEGER :: K,L
       K=SCAN(PATH,'/',.TRUE.)
@@ -257,13 +320,16 @@ C ******************************************************************************
       END SUBROUTINE RESOLVEPATH
 C ******************************************************************************
       SUBROUTINE BGFIT2P0(M,N,D,IMG,BG,B)
-      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB
-      INTEGER :: M,N,I,J,K
-      DOUBLE PRECISION :: X,Y,XC,YC,D,B
-      DOUBLE PRECISION, INTENT(IN):: IMG(M,N)
-      DOUBLE PRECISION, INTENT(INOUT) :: BG(M,N)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: M,N
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS
+      INTEGER :: I,J,K
+      DOUBLE PRECISION, INTENT(IN) :: D,IMG(M,N)
+      DOUBLE PRECISION, INTENT(OUT) :: BG(M,N),B(*)
+      DOUBLE PRECISION :: X,Y,XC,YC
+      NPARAMS=1
       NSAMPLES=0
-      B=0
+      B(1)=0
       XC=0.5*(1+DBLE(N))
       YC=0.5*(1+DBLE(M))
       DO J=1,N
@@ -272,12 +338,12 @@ C ******************************************************************************
           Y=DBLE(I)
           IF (SQRT((X-XC)*(X-XC)+(Y-YC)*(Y-YC)).GE.D) THEN
             NSAMPLES=NSAMPLES+1
-            B=B+IMG(I,J)
+            B(1)=B(1)+IMG(I,J)
           END IF
         END DO
       END DO
-      B=B/DBLE(NSAMPLES)
-      BG=B
+      B(1)=B(1)/DBLE(NSAMPLES)
+      BG=B(1)
       RETURN
       END SUBROUTINE BGFIT2P0
 C ******************************************************************************
@@ -301,11 +367,15 @@ C  BG,B are the output of this subroutine.
 C  Each row of A is vector (1, x, y, x^2, x*y, y^2) for a specific (x,y).
 C  B is (z_1, z_2, z_3, ..., z_n)'. The subscript of z denotes different
 C  location.
-      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB
-      INTEGER :: M,N,I,J,K
-      DOUBLE PRECISION :: X,Y,XC,YC,D
-      DOUBLE PRECISION :: IMG(M,*),BG(M,*),B(*)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: M,N
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS
+      INTEGER :: I,J,K
+      DOUBLE PRECISION, INTENT(IN) :: D,IMG(M,N)
+      DOUBLE PRECISION, INTENT(OUT) :: BG(M,N),B(*)
+      DOUBLE PRECISION :: X,Y,XC,YC
       DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:)
+      NPARAMS=6
       NSAMPLES=0
       XC=0.5*(1+DBLE(N))
       YC=0.5*(1+DBLE(M))
@@ -385,10 +455,14 @@ C  D is distance. Elements whose distance from the centre of IMG is larger than
 C    D are sampled. BG is fitted to the sampled elements.
 C  IMG is the matrix the background of which is to be fitted.
 C  BG is the output of this subroutine.
-      DOUBLE PRECISION :: IMG(M,N),BG(M,N),X,Y,XC,YC,D,B(*)
-      INTEGER :: M,N,I,J,K
-      DOUBLE PRECISION, ALLOCATABLE :: A(:,:),WORK(:)
-      INTEGER :: NPARAMS,NSAMPLES,LWORK,INFO,LDA,LDB
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: M,N
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS
+      INTEGER :: I,J,K
+      DOUBLE PRECISION, INTENT(IN) :: D,IMG(M,N)
+      DOUBLE PRECISION, INTENT(OUT) :: BG(M,N),B(*)
+      DOUBLE PRECISION :: X,Y,XC,YC
+      DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:)
       NPARAMS=15
       NSAMPLES=0
       XC=0.5*(1+DBLE(N))

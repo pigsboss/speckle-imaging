@@ -2,7 +2,7 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: ffc subimage bgfit bgcut
+all: ffc subimage bgfit bgcut average
 
 bgcut: bgcut.o libspeckle.o
 	gfortran -o bgcut bgcut.o libspeckle.o -lcfitsio \

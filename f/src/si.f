@@ -1,64 +1,70 @@
-      PROGRAM MAIN
-C Speckle interferometry.
-C =======================
+      PROGRAM SI
+C  Speckle interferometry.
+C  =======================
 C
-C Usage:
-C ======
-C  si file_obs first_row_obs,first_col_obs,first_frm_obs
-C    last_row_obs,last_col_obs,last_frm_obs radius_obs
-C    file_ref first_row_ref,first_col_ref,first_frm_ref
-C    last_row_ref,last_col_ref,last_frm_ref radius_ref
-C    pad_size fit_method prefix
+C  Usage:
+C  ======
+C  si filename_target filename_reference [-target-range=m,n] [-ref-range=m,n]
+C    [-prefix=...]
 C
-C Arguments:
-C ==========
-C  1.  file_obs      - observed file (target).
-C  2.1 first_row_obs - first row number.
-C  2.2 first_col_obs - first column number.
-C  2.3 first_frm_obs - first frame number.
-C  3.1 last_row_obs  - last row number.
-C  3.2 last_col_obs  - last column number.
-C  3.3 last_frm_obs  - last frame number.
-C  4.  radius_obs    - radius of the border of signal in observed frames.
-C  5.  file_ref      - reference file (reference star).
-C  6.1 first_row_ref - first row number.
-C  6.2 first_col_ref - first column number.
-C  6.3 first_frm_ref - first frame number.
-C  7.1 last_row_ref  - last row number.
-C  7.2 last_col_ref  - last column number.
-C  7.3 last_frm_ref  - last frame number.
-C  8.  radius_ref    - radius of the border of signal in reference frames.
-C  9.  pad_size      - pad all frames to this size before executing FFT.
-C 10.  fit_method    - P0, P2, or P4.
-C 11.  prefix        - prefix of output filename.
+C  Arguments:
+C  ==========
 C
-      INTEGER :: FPOBS(3),LPOBS(3),FPREF(3),LPREF(3),P
-      CHARACTER(LEN=256) :: OBSFILE,REFFILE,PREFIX,ARG,FTMETHOD
-      DOUBLE PRECISION :: DROBS,DRREF
-      DOUBLE PRECISION, ALLOCATABLE :: DACF(:,:)
-      CALL GETARG(1,OBSFILE)
-      CALL GETARG(2,ARG)
-      READ(ARG,*) FPOBS(1),FPOBS(2),FPOBS(3)
-      CALL GETARG(3,ARG)
-      READ(ARG,*) LPOBS(1),LPOBS(2),LPOBS(3)
-      CALL GETARG(4,ARG)
-      READ(ARG,*) DROBS
-      CALL GETARG(5,REFFILE)
-      CALL GETARG(6,ARG)
-      READ(ARG,*) FPREF(1),FPREF(2),FPREF(3)
-      CALL GETARG(7,ARG)
-      READ(ARG,*) LPREF(1),LPREF(2),LPREF(3)
-      CALL GETARG(8,ARG)
-      READ(ARG,*) DRREF
-      CALL GETARG(9,ARG)
-      READ(ARG,*) P
-      CALL GETARG(10,FTMETHOD)
-      CALL GETARG(11,PREFIX)
-      ALLOCATE(DACF(P,P))
-      CALL SIREC(OBSFILE,FPOBS,LPOBS,DROBS,
-     &  REFFILE,FPREF,LPREF,DRREF,P,TRIM(FTMETHOD),DACF)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_ACF.FITS',
-     &  (/1,1,1/),(/P,P,1/),DACF)
-      DEALLOCATE(DACF)
+      IMPLICIT NONE
+      INTEGER :: NAXES(3),TRNG(2),RRNG(2),NARGS,K,PX,PY
+      CHARACTER(LEN=256) :: TFILE,RFILE,PREFIX,ARG,BASENAME,EXTNAME
+      INTERFACE
+      SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
+      CHARACTER*(*), INTENT(IN) :: IMGFILE
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      END SUBROUTINE IMAGESIZE
+C
+      SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
+      CHARACTER*(*), INTENT(IN) :: PATH
+      CHARACTER*(*), INTENT(OUT) :: BASENAME,EXTNAME
+      END SUBROUTINE RESOLVEPATH
+C
+      SUBROUTINE SPECKLEINTERFEROMETRY(TFILE,TRNG,RFILE,RRNG,PX,PY,
+     &  PREFIX,BUFFERSIZE)
+      INTEGER, INTENT(IN) :: TRNG(2),RRNG(2),PX,PY
+      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
+      CHARACTER*(*), INTENT(IN) :: TFILE,RFILE,PREFIX
+      END SUBROUTINE SPECKLEINTERFEROMETRY
+      END INTERFACE
+      NARGS=COMMAND_ARGUMENT_COUNT()
+      PX=0
+      PY=0
+      CALL GET_COMMAND_ARGUMENT(1,TFILE)
+      CALL GET_COMMAND_ARGUMENT(2,RFILE)
+      CALL IMAGESIZE(TFILE,NAXES)
+      PX=MAX(PX,NAXES(1))
+      PY=MAX(PY,NAXES(2))
+      TRNG=(/1,NAXES(3)/)
+      CALL IMAGESIZE(RFILE,NAXES)
+      PX=MAX(PX,NAXES(1))
+      PY=MAX(PY,NAXES(2))
+      RRNG=(/1,NAXES(3)/)
+      PX=INT(IDNINT(
+     &  DEXP(DLOG(2.0D0)*CEILING(DLOG(DBLE(PX))/DLOG(2.0D0)))))
+      PY=INT(IDNINT(
+     &  DEXP(DLOG(2.0D0)*CEILING(DLOG(DBLE(PY))/DLOG(2.0D0)))))
+      CALL RESOLVEPATH(TFILE,BASENAME,EXTNAME)
+      PREFIX=BASENAME
+      CALL RESOLVEPATH(RFILE,BASENAME,EXTNAME)
+      PREFIX=PREFIX//'_'//BASENAME//'_si'
+      DO K=3,NARGS
+        CALL GET_COMMAND_ARGUMENT(K,ARG)
+        IF(INDEX(ARG,'-target-range=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-target-range=')+14:),*) TRNG(1),TRNG(2)
+        ELSE IF(INDEX(ARG,'-ref-range=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-ref-range=')+11:),*) RRNG(1),RRNG(2)
+        ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
+          PREFIX=ARG(INDEX(ARG,'-prefix=')+8:)
+        ELSE
+          PRINT *,'Unknown argument '//TRIM(ARG)
+          RETURN
+        END IF
+      END DO
+      CALL SPECKLEINTERFEROMETRY(TFILE,TRNG,RFILE,RRNG,PX,PY,PREFIX)
       STOP
-      END PROGRAM MAIN
+      END PROGRAM SI

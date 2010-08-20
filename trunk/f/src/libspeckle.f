@@ -1,4 +1,3 @@
-C ******************************************************************************
       SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
       IMPLICIT NONE
       INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,NAXIS,NFOUND,GROUP
@@ -721,47 +720,138 @@ C
       END SUBROUTINE DCORR2D
 
 C ******************************************************************************
-      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DR,FTMETHOD,DPSD)
+      SUBROUTINE SPECKLEINTERFEROMETRY(TFILE,TRNG,RFILE,RRNG,PX,PY,
+     &  PREFIX,BUFFERSIZE)
+C  Declarations:
+C  =============
+      IMPLICIT NONE
+      INCLUDE 'fftw3.f'
+      INTEGER*8 :: PLAN
+      INTEGER, INTENT(IN) :: PX,PY,TRNG(2),RRNG(2)
+      INTEGER, OPTIONAL, INTENT(IN) :: BUFFERSIZE
+      INTEGER :: X,Y,NAXES(3)
+      DOUBLE PRECISION, DIMENSION(PX,PY) :: DTPSD,DRPSD,DPSD,DACF
+      DOUBLE COMPLEX :: ZIN(PX,PY),ZOUT(PX,PY)
+      CHARACTER*(*), INTENT(IN) :: OBSFILE,REFFILE,PREFIX
+      INTERFACE
+      SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
+      CHARACTER*(*), INTENT(IN) :: IMGFILE
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DX,DY,DPSD,BUFFERSIZE)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3),DX,DY
+      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
+      DOUBLE PRECISION, INTENT(OUT) :: DPSD(DX,DY)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE GETPSD
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE DFFTSHIFT(W,H,DX)
+      INTEGER, INTENT(IN) :: W,H
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(W,H)
+      END SUBROUTINE DFFTSHIFT
+      END INTERFACE
+C  Statements:
+C  ===========
+      CALL IMAGESIZE(TFILE,NAXES)
+      IF(TRNG(2).LT.NAXES(3))THEN
+        PRINT *,'request is out of range.'
+        RETURN
+      END IF
+      IF(PRESENT(BUFFERSIZE))THEN
+        CALL GETPSD(TFILE,(/1,1,TRNG(1)/),(/NAXES(1),NAXES(2),TRNG(2)/),
+     &    PX,PY,DTPSD,BUFFERSIZE)
+      ELSE
+        CALL GETPSD(TFILE,(/1,1,TRNG(1)/),(/NAXES(1),NAXES(2),TRNG(2)/),
+     &    PX,PY,DTPSD)
+      END IF
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_tgabs.fits',
+     &  (/1,1,1/),(/PX,PY,1/),DSQRT(DTPSD))
+      PRINT *,'spectral amplitude of target: '//
+     &  TRIM(PREFIX)//'_tgabs.fits'
+      CALL IMAGESIZE(RFILE,NAXES)
+      IF(RRNG(2).LT.NAXES(3))THEN
+        PRINT *,'request is out of range.'
+        RETURN
+      END IF
+      IF(PRESENT(BUFFERSIZE))THEN
+        CALL GETPSD(RFILE,(/1,1,RRNG(1)/),(/NAXES(1),NAXES(2),RRNG(2)/),
+     &    PX,PY,DRPSD,BUFFERSIZE)
+      ELSE
+        CALL GETPSD(RFILE,(/1,1,RRNG(1)/),(/NAXES(1),NAXES(2),RRNG(2)/),
+     &    PX,PY,DRPSD)
+      END IF
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_rfabs.fits',
+     &  (/1,1,1/),(/PX,PY,1/),DSQRT(DRPSD))
+      PRINT *,'spectral amplitude of reference: '//
+     &  TRIM(PREFIX)//'_rfabs.fits'
+      DO X=1,PX
+        DO Y=1,PY
+          IF (DABS(DRPSD(X,Y)) .GT. 0)THEN
+            DPSD(X,Y)=DTPSD(X,Y)/DRPSD(X,Y)
+          ELSE
+            DPSD(X,Y)=DBLE(0)
+          END IF
+        END DO
+      END DO
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_dmpsd.fits',
+     &  (/1,1,1/),(/PX,PY,1/),DPSD)
+      PRINT *,'demodulated power spectral density: '//
+     &  TRIM(PREFIX)//'_dmpsd.fits'
+      CALL DFFTW_PLAN_DFT_2D(PLAN,PX,PY,ZIN,ZOUT,1,
+     &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      ZIN=CMPLX(DPSD)
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      DACF=DREAL(ZOUT/DBLE(NAXES(1))/DBLE(NAXES(2)))
+      CALL DFFTSHIFT(PX,PY,DACF)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_acf.fits',
+     &  (/1,1,1/),(/PX,PY,1/),DACF)
+      PRINT *,'reconstructed auto-correlation function: '//
+     &  TRIM(PREFIX)//'_acf.fits'
+      CALL DFFTW_DESTROY_PLAN(PLAN)
+      RETURN
+      END SUBROUTINE SPECKLEINTERFEROMETRY
+C ******************************************************************************
+      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DX,DY,DPSD,BUFFERSIZE)
 C  Purpose:
 C  ========
 C  Get the mean power spectral density of all frames in the given FITS file.
 C
 C  Declarations:
 C  =============
+      IMPLICIT NONE
       INCLUDE 'fftw3.f'
-      INTEGER :: M,N,INFO,K,NPIXELS,NFRAMES,I,J
+      INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3),DX,DY
+      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
+      INTEGER :: W,H,INFO,K,NPIXELS,NFRAMES,LBUF,NBUF,L,L1,L2
       INTEGER*8 :: PLAN
-      INTEGER, INTENT(IN):: FPIXELS(3),LPIXELS(3)
-      DOUBLE PRECISION, INTENT(OUT) :: DPSD(LPIXELS(1)-FPIXELS(1)+1,
-     &  LPIXELS(2)-FPIXELS(2)+1)
-      DOUBLE PRECISION, 
-     &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
-     &  WORK,DBG,DB
-      DOUBLE PRECISION, INTENT(IN) :: DR
-      DOUBLE COMPLEX,
-     &  DIMENSION(LPIXELS(1)-FPIXELS(1)+1,LPIXELS(2)-FPIXELS(2)+1) ::
-     &  ZIN,ZOUT
-      CHARACTER*(*), INTENT(IN) :: FILENAME,FTMETHOD
+      DOUBLE PRECISION, INTENT(OUT) :: DPSD(DX,DY)
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:)
+      DOUBLE COMPLEX, DIMENSION(DX,DY) :: ZIN,ZOUT
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      END INTERFACE
 C  Statements:
 C  ===========
-      M=LPIXELS(1)-FPIXELS(1)+1
-      N=LPIXELS(2)-FPIXELS(2)+1
-      NPIXELS=M*N
+      W=LPIXELS(1)-FPIXELS(1)+1
+      H=LPIXELS(2)-FPIXELS(2)+1
+      NPIXELS=W*H
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
-      CALL AVERAGE(FILENAME,FPIXELS,LPIXELS,WORK,10)
-      IF (FTMETHOD .EQ. 'P0')THEN
-        CALL BGFIT2P0(M,N,DR,WORK,DBG,DB(1,1))
-      ELSE IF (FTMETHOD .EQ. 'P2') THEN
-        CALL BGFIT2P2(M,N,DR,WORK,DBG,DB)
-      ELSE IF (FTMETHOD .EQ. 'P4') THEN
-        CALL BGFIT2P4(M,N,DR,WORK,DBG,DB)
+      IF(PRESENT(BUFFERSIZE))THEN
+        LBUF=INT(FLOOR(DBLE(BUFFERSIZE*1024*1024)/DBLE(NPIXELS*8)))
       ELSE
-        PRINT *,'Unknown fitting method.',FTMETHOD
-        RETURN
+        LBUF=INT(FLOOR(DBLE(1024*1024)/DBLE(NPIXELS)))
       END IF
-C  subtract the minimum value (the most negative value) of the background
-C  in order not to introduce negative counts into images.
-C     DBG=DBG-MINVAL(DBG)
+      NBUF=INT(CEILING(DBLE(NFRAMES)/DBLE(LBUF)))
+      ALLOCATE(DBUF(W,H,LBUF))
       CALL DFFTW_INIT_THREADS(INFO)
       IF (INFO .EQ. 0)THEN
         PRINT *,'DFFTW_INIT_THREADS failed.'
@@ -772,27 +862,25 @@ C     DBG=DBG-MINVAL(DBG)
       IF (INFO .EQ. 0)THEN
         PRINT *,'DFFTW_IMPORT_SYSTEM_WISDOM failed.'
       END IF
-      PRINT *,'Start planning.'
-      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
+C     PRINT *,'Start planning.'
+      CALL DFFTW_PLAN_DFT_2D(PLAN,D1,D2,ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
-      PRINT *,'Finished planning.'
-      DPSD=0
-      DO K=FPIXELS(3),LPIXELS(3)
-        CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),K/),
-     &    (/LPIXELS(1),LPIXELS(2),K/),WORK)
-        ZIN=CMPLX(WORK/SUM(WORK)*DBLE(NPIXELS)-DBG)
-        DO I=1,M
-          DO J=1,N
-            IF (ZABS(ZIN(I,J)).LT.DBLE(0))THEN
-              ZIN(I,J)=CMPLX(0)
-            END IF
-          END DO
+C     PRINT *,'Finished planning.'
+      DPSD=DBLE(0)
+      DO K=1,NBUF
+        L1=(K-1)*LBUF+1
+        L2=MIN(NFRAMES,K*LBUF)
+        CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),L1/),
+     &    (/LPIXELS(1),LPIXELS(2),L2/),DBUF)
+        DO L=1,L2+1-L1
+          ZIN=CMPLX(DBLE(0))
+          ZIN(1:W,1:H)=DBUF(:,:,L)*DBLE(NPIXELS)/SUM(DBUF(:,:,L))
+          CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+          DPSD=DPSD+DREAL(ZOUT*CONJG(ZOUT))
         END DO
-        CALL ZIFFTSHIFT(M,N,ZIN)
-        CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
-        DPSD=DPSD+DBLE(ZOUT*CONJG(ZOUT))
       END DO
       DPSD=DPSD/DBLE(NFRAMES)
+      DEALLOCATE(DBUF)
       CALL DFFTW_DESTROY_PLAN(PLAN)
       RETURN
       END SUBROUTINE GETPSD

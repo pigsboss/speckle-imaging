@@ -2,27 +2,31 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: ffc subimage bgfit bgcut average
+all: ffc subimage bgfit bgcut average si
 
-bgcut: bgcut.o libspeckle.o
-	gfortran -o bgcut bgcut.o libspeckle.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-bgfit: bgfit.o libspeckle.o
-	gfortran -o bgfit bgfit.o libspeckle.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-corr2: corr2.o libspeckle.o
-	gfortran -o corr2 corr2.o libspeckle.o -lcfitsio \
+ffc: ffc.o libspeckle.o
+	gfortran -o ffc ffc.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 subimage: subimage.o libspeckle.o
 	gfortran -o subimage subimage.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
-ffc: ffc.o libspeckle.o
-	gfortran -o ffc ffc.o libspeckle.o -lcfitsio \
+bgfit: bgfit.o libspeckle.o
+	gfortran -o bgfit bgfit.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+bgcut: bgcut.o libspeckle.o
+	gfortran -o bgcut bgcut.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+average: average.o libspeckle.o
+	gfortran -o average average.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+si: si.o libspeckle.o
+	gfortran -o si si.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o -lcfitsio \
@@ -38,10 +42,6 @@ smtest: smtest.o libspeckle.o smrec.o
 
 sm: sm.o libspeckle.o smrec.o
 	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-si: si.o libspeckle.o sirec.o
-	gfortran -o si si.o libspeckle.o sirec.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 isa: isa.o libspeckle.o isarec.o
@@ -60,15 +60,8 @@ ssa: ssa.o libspeckle.o ssarec.o
 	gfortran -o ssa ssa.o libspeckle.o ssarec.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
-average: average.o libspeckle.o
-	gfortran -o average average.o libspeckle.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
 ffc.o: ffc.f
 	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)
-
-sirec.o: sirec.f
-	gfortran $(COPTIONS) -c -o sirec.o sirec.f $(CFLAGS)
 
 smrec.o: smrec.f
 	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)

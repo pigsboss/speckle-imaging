@@ -189,6 +189,7 @@ C
       END SUBROUTINE FLATFIELDCORRECT
 C ******************************************************************************
       SUBROUTINE PRINTERROR(STATUS)
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: STATUS
       CHARACTER :: ERRTEXT*30,ERRMESSAGE*80
       IF (STATUS .LE. 0)RETURN
@@ -203,9 +204,15 @@ C ******************************************************************************
       END SUBROUTINE PRINTERROR
 C ******************************************************************************
       SUBROUTINE DELETEFILE(FILENAME,STATUS)
+      IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: STATUS
       INTEGER :: UNIT,BLOCKSIZE
       CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
       IF (STATUS .GT. 0)RETURN
       CALL FTGIOU(UNIT,STATUS)
       CALL FTOPEN(UNIT,FILENAME,1,BLOCKSIZE,STATUS)
@@ -225,11 +232,21 @@ C ******************************************************************************
       END SUBROUTINE DELETEFILE
 C ******************************************************************************
       SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      IMPLICIT NONE
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER :: NAXES(3)
       DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
       CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE DELETEFILE(FILENAME,STATUS)
+      INTEGER, INTENT(INOUT) :: STATUS
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE DELETEFILE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       BLOCKSIZE=1
@@ -249,6 +266,82 @@ C ******************************************************************************
       RETURN
       END SUBROUTINE WRITEIMAGE
 C ******************************************************************************
+      SUBROUTINE EWRITEIMAGE(FILENAME,FPIXELS,LPIXELS,EIMG)
+      IMPLICIT NONE
+      INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      INTEGER :: NAXES(3)
+      DOUBLE PRECISION, INTENT(IN) :: EIMG(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE DELETEFILE(FILENAME,STATUS)
+      INTEGER, INTENT(INOUT) :: STATUS
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE DELETEFILE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
+      STATUS=0
+      CALL FTGIOU(UNIT,STATUS)
+      BLOCKSIZE=1
+      BITPIX=-32
+      NAXIS=3
+      NAXES(1)=LPIXELS(1)-FPIXELS(1)+1
+      NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
+      NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
+      CALL DELETEFILE(FILENAME,STATUS)
+      CALL FTINIT(UNIT,FILENAME,BLOCKSIZE,STATUS)
+      CALL FTPHPS(UNIT,BITPIX,NAXIS,NAXES,STATUS)
+      GROUP=1
+      CALL FTPSSE(UNIT,GROUP,NAXIS,NAXES,FPIXELS,LPIXELS,EIMG,STATUS)
+      CALL FTCLOS(UNIT,STATUS)
+      CALL FTFIOU(UNIT,STATUS)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
+      RETURN
+      END SUBROUTINE WRITEIMAGE
+C ******************************************************************************
+      SUBROUTINE EREADIMAGE(FILENAME,FPIXELS,LPIXELS,EIMG)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      INTEGER :: STATUS,UNIT,READWRITE,BLOCKSIZE,NAXIS,NFOUND
+      INTEGER :: GROUP,INCS(3),NAXES(3)
+      DOUBLE PRECISION, INTENT(OUT) :: EIMG(*)
+      DOUBLE PRECISION :: NULLVAL
+      LOGICAL :: ANYF
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
+      STATUS=0
+      CALL FTGIOU(UNIT,STATUS)
+      READWRITE=0
+      CALL FTOPEN(UNIT,FILENAME,READWRITE,BLOCKSIZE,STATUS)
+      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
+      IF (NFOUND .NE. 3)THEN
+        PRINT *,'READIMAGE failed to read the NAXIS keywords.'
+        RETURN
+      ENDIF
+      GROUP=1
+      NAXIS=3
+      INCS(1)=1
+      INCS(2)=1
+      INCS(3)=1
+      NULLVAL=-999
+      CALL FTGSVE(UNIT,GROUP,NAXIS,NAXES,FPIXELS,LPIXELS,INCS,
+     &  NULLVAL,EIMG,ANYF,STATUS)
+      IF (ANYF)THEN
+        PRINT *,'One or more pixels are undefined in the FITS image.'
+        RETURN
+      ENDIF
+      CALL FTCLOS(UNIT, STATUS)
+      CALL FTFIOU(UNIT, STATUS)
+      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
+      RETURN
+      END SUBROUTINE EREADIMAGE
+C ******************************************************************************
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
@@ -258,6 +351,11 @@ C ******************************************************************************
       DOUBLE PRECISION :: NULLVAL
       LOGICAL :: ANYF
       CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       READWRITE=0
@@ -294,6 +392,13 @@ C ******************************************************************************
       DOUBLE PRECISION, INTENT(OUT) :: ARRAY(LPIXELS(1)-FPIXELS(1)+1,
      &  LPIXELS(2)-FPIXELS(2)+1)
       DOUBLE PRECISION, ALLOCATABLE :: BUFFER(:,:,:)
+      INTERFACE
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER*(*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      END INTERFACE
       M=LPIXELS(1)-FPIXELS(1)+1
       N=LPIXELS(2)-FPIXELS(2)+1
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
@@ -322,6 +427,7 @@ C ******************************************************************************
       END SUBROUTINE AVERAGE
 C ******************************************************************************
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
+      IMPLICIT NONE
       CHARACTER*(*), INTENT(IN) :: PATH
       CHARACTER*(*), INTENT(OUT) :: BASENAME,EXTNAME
       CHARACTER :: FILENAME*80
@@ -546,6 +652,7 @@ C  BG is the output of this subroutine.
       END SUBROUTINE BGFIT2P4
 C ******************************************************************************
       SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
+      IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN1D,PLAN2D
       INTEGER :: M,N,I,J,K,NPIXS,NSPLS,INFO
@@ -639,6 +746,7 @@ C  DSNR - Signal-to-noise ratio.
 C 
 C  Declarations:
 C  =============
+      IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN
       INTEGER :: M,N,INFO
@@ -673,6 +781,7 @@ C     CALL DFFTW_CLEANUP_THREADS()
 C ******************************************************************************
       SUBROUTINE ZFFTSHIFT(M,N,ZX)
 C  Shift zero-frequency component to the centre of spectrum.
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: M,N
       DOUBLE COMPLEX, INTENT(INOUT) :: ZX(M,N)
       ZX=CSHIFT(CSHIFT(ZX,INT(FLOOR(0.5*DBLE(M))),1),
@@ -682,6 +791,7 @@ C  Shift zero-frequency component to the centre of spectrum.
 C ******************************************************************************
       SUBROUTINE DFFTSHIFT(M,N,DX)
 C  Shift zero-frequency component to the centre of spectrum.
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: M,N
       DOUBLE PRECISION, INTENT(INOUT) :: DX(M,N)
       DX=CSHIFT(CSHIFT(DX,INT(FLOOR(0.5*DBLE(M))),1),
@@ -691,6 +801,7 @@ C  Shift zero-frequency component to the centre of spectrum.
 C ******************************************************************************
       SUBROUTINE ZIFFTSHIFT(M,N,ZX)
 C  Shift zero-frequency component to (1,1) position of spectrum.
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: M,N
       DOUBLE COMPLEX, INTENT(INOUT) :: ZX(M,N)
       ZX=CSHIFT(CSHIFT(ZX,INT(FLOOR(-0.5*DBLE(M))),1),
@@ -700,6 +811,7 @@ C  Shift zero-frequency component to (1,1) position of spectrum.
 C ******************************************************************************
       SUBROUTINE DIFFTSHIFT(M,N,DX)
 C  Shift zero-frequency component to (1,1) position of spectrum.
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: M,N
       DOUBLE PRECISION, INTENT(INOUT) :: DX(M,N)
       DX=CSHIFT(CSHIFT(DX,INT(FLOOR(-0.5*DBLE(M))),1),
@@ -715,6 +827,7 @@ C  ========
 C  c = corr(a, b). calculates c given a and b using fast fourier transform.
 C  fft(c) = fft(a) * conj(fft(b)) (periodic extension is implied).
 C
+      IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN
       INTEGER :: M,N
@@ -912,6 +1025,7 @@ C     PRINT *,'Finished planning.'
       END SUBROUTINE GETPSD
 C ******************************************************************************
       SUBROUTINE DECONVCLEAN(M,N,DG,DF,DH,DBETA,MNUMIT)
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: M,N
       INTEGER :: X,Y,XC,YC,K,L,MNUMIT
       DOUBLE PRECISION, INTENT(IN) :: DG(M,N),DH(M,N),DBETA
@@ -953,11 +1067,17 @@ C ******************************************************************************
       END SUBROUTINE DECONVCLEAN
 C ******************************************************************************
       SUBROUTINE APPENDIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP,RWMODE,EXISTS
       INTEGER :: NAXES(3)
       DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
       CHARACTER*(*), INTENT(IN) :: FILENAME
+      INTERFACE
+      SUBROUTINE PRINTERROR(STATUS)
+      INTEGER, INTENT(IN) :: STATUS
+      END SUBROUTINE PRINTERROR
+      END INTERFACE
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       BLOCKSIZE=1

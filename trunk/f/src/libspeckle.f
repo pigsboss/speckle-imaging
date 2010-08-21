@@ -772,6 +772,10 @@ C  =============
       INTEGER, INTENT(IN) :: W,H
       DOUBLE PRECISION, INTENT(INOUT) :: DX(W,H)
       END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(W,H,DX)
+      INTEGER, INTENT(IN) :: W,H
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(W,H)
+      END SUBROUTINE DIFFTSHIFT
       END INTERFACE
 C  Statements:
 C  ===========
@@ -787,6 +791,7 @@ C  ===========
         CALL GETPSD(TFILE,(/1,1,TRNG(1)/),(/NAXES(1),NAXES(2),TRNG(2)/),
      &    PX,PY,DTPSD)
       END IF
+      CALL DFFTSHIFT(NAXES(1),NAXES(2),DTPSD)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_tgabs.fits',
      &  (/1,1,1/),(/PX,PY,1/),DSQRT(DTPSD))
       PRINT *,'spectral amplitude of target: '//
@@ -803,6 +808,7 @@ C  ===========
         CALL GETPSD(RFILE,(/1,1,RRNG(1)/),(/NAXES(1),NAXES(2),RRNG(2)/),
      &    PX,PY,DRPSD)
       END IF
+      CALL DFFTSHIFT(NAXES(1),NAXES(2),DRPSD)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_rfabs.fits',
      &  (/1,1,1/),(/PX,PY,1/),DSQRT(DRPSD))
       PRINT *,'spectral amplitude of reference: '//
@@ -822,6 +828,7 @@ C  ===========
      &  TRIM(PREFIX)//'_dmpsd.fits'
       CALL DFFTW_PLAN_DFT_2D(PLAN,PX,PY,ZIN,ZOUT,1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
+      CALL DIFFTSHIFT(NAXES(1),NAXES(2),DPSD)
       ZIN=CMPLX(DPSD)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       DACF=DREAL(ZOUT/DBLE(NAXES(1))/DBLE(NAXES(2)))

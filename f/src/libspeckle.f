@@ -299,7 +299,7 @@ C ******************************************************************************
       CALL FTFIOU(UNIT,STATUS)
       IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
-      END SUBROUTINE WRITEIMAGE
+      END SUBROUTINE EWRITEIMAGE
 C ******************************************************************************
       SUBROUTINE EREADIMAGE(FILENAME,FPIXELS,LPIXELS,EIMG)
       IMPLICIT NONE
@@ -712,12 +712,10 @@ C ******************************************************************************
       END DO
       ZIN2D(1:M,1:N)=CMPLX(CLN(1:M,1:N))
       CALL DFFTW_EXECUTE_DFT(PLAN2D,ZIN2D,ZOUT2D)
-      PS=DZNRM2(M*N,RESHAPE(ZOUT2D,(/NPIXS,1/)),1)
-      PS=PS*PS/DBLE(NPIXS)/SQRT(DBLE(NPIXS))
+      PS=SUM(ZOUT2D*CONJG(ZOUT2D))/DBLE(NPIXS)/DSQRT(DBLE(NPIXS))
       ZIN1D(1:NSPLS)=CMPLX(BUFFER(1:NSPLS))
       CALL DFFTW_EXECUTE_DFT(PLAN1D,ZIN1D,ZOUT1D)
-      PN=DZNRM2(NSPLS,ZOUT1D(1:NSPLS),1)
-      PN=PN*PN/DBLE(NSPLS)/SQRT(DBLE(NSPLS))
+      PN=SUM(ZOUT1D*CONJG(ZOUT1D))/DBLE(NSPLS)/DSQRT(DBLE(NSPLS))
       SNR=PS/PN
       CALL DFFTW_DESTROY_PLAN(PLAN1D)
       CALL DFFTW_DESTROY_PLAN(PLAN2D)
@@ -1070,7 +1068,7 @@ C ******************************************************************************
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP,RWMODE,EXISTS
-      INTEGER :: NAXES(3)
+      INTEGER :: NAXES(3),NFOUND
       DOUBLE PRECISION, INTENT(IN) :: ARRAY(*)
       CHARACTER*(*), INTENT(IN) :: FILENAME
       INTERFACE

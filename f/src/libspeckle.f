@@ -266,82 +266,6 @@ C ******************************************************************************
       RETURN
       END SUBROUTINE WRITEIMAGE
 C ******************************************************************************
-      SUBROUTINE EWRITEIMAGE(FILENAME,FPIXELS,LPIXELS,EIMG)
-      IMPLICIT NONE
-      INTEGER :: STATUS,UNIT,BLOCKSIZE,BITPIX,NAXIS,GROUP
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      INTEGER :: NAXES(3)
-      DOUBLE PRECISION, INTENT(IN) :: EIMG(*)
-      CHARACTER*(*), INTENT(IN) :: FILENAME
-      INTERFACE
-      SUBROUTINE DELETEFILE(FILENAME,STATUS)
-      INTEGER, INTENT(INOUT) :: STATUS
-      CHARACTER*(*), INTENT(IN) :: FILENAME
-      END SUBROUTINE DELETEFILE
-      SUBROUTINE PRINTERROR(STATUS)
-      INTEGER, INTENT(IN) :: STATUS
-      END SUBROUTINE PRINTERROR
-      END INTERFACE
-      STATUS=0
-      CALL FTGIOU(UNIT,STATUS)
-      BLOCKSIZE=1
-      BITPIX=-32
-      NAXIS=3
-      NAXES(1)=LPIXELS(1)-FPIXELS(1)+1
-      NAXES(2)=LPIXELS(2)-FPIXELS(2)+1
-      NAXES(3)=LPIXELS(3)-FPIXELS(3)+1
-      CALL DELETEFILE(FILENAME,STATUS)
-      CALL FTINIT(UNIT,FILENAME,BLOCKSIZE,STATUS)
-      CALL FTPHPS(UNIT,BITPIX,NAXIS,NAXES,STATUS)
-      GROUP=1
-      CALL FTPSSE(UNIT,GROUP,NAXIS,NAXES,FPIXELS,LPIXELS,EIMG,STATUS)
-      CALL FTCLOS(UNIT,STATUS)
-      CALL FTFIOU(UNIT,STATUS)
-      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
-      RETURN
-      END SUBROUTINE EWRITEIMAGE
-C ******************************************************************************
-      SUBROUTINE EREADIMAGE(FILENAME,FPIXELS,LPIXELS,EIMG)
-      IMPLICIT NONE
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      INTEGER :: STATUS,UNIT,READWRITE,BLOCKSIZE,NAXIS,NFOUND
-      INTEGER :: GROUP,INCS(3),NAXES(3)
-      DOUBLE PRECISION, INTENT(OUT) :: EIMG(*)
-      DOUBLE PRECISION :: NULLVAL
-      LOGICAL :: ANYF
-      CHARACTER*(*), INTENT(IN) :: FILENAME
-      INTERFACE
-      SUBROUTINE PRINTERROR(STATUS)
-      INTEGER, INTENT(IN) :: STATUS
-      END SUBROUTINE PRINTERROR
-      END INTERFACE
-      STATUS=0
-      CALL FTGIOU(UNIT,STATUS)
-      READWRITE=0
-      CALL FTOPEN(UNIT,FILENAME,READWRITE,BLOCKSIZE,STATUS)
-      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
-      IF (NFOUND .NE. 3)THEN
-        PRINT *,'READIMAGE failed to read the NAXIS keywords.'
-        RETURN
-      ENDIF
-      GROUP=1
-      NAXIS=3
-      INCS(1)=1
-      INCS(2)=1
-      INCS(3)=1
-      NULLVAL=-999
-      CALL FTGSVE(UNIT,GROUP,NAXIS,NAXES,FPIXELS,LPIXELS,INCS,
-     &  NULLVAL,EIMG,ANYF,STATUS)
-      IF (ANYF)THEN
-        PRINT *,'One or more pixels are undefined in the FITS image.'
-        RETURN
-      ENDIF
-      CALL FTCLOS(UNIT, STATUS)
-      CALL FTFIOU(UNIT, STATUS)
-      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
-      RETURN
-      END SUBROUTINE EREADIMAGE
-C ******************************************************************************
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,ARRAY)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
@@ -650,6 +574,93 @@ C  BG is the output of this subroutine.
       DEALLOCATE(A)
       RETURN
       END SUBROUTINE BGFIT2P4
+C ******************************************************************************
+      SUBROUTINE BGFIT2PN(NX,NY,DR,DIMG,N,DBG,DB)
+C  2-dimensional background fitting subroutine using N-th polynomials.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,N
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS,X,Y,L,PX,PY,K
+      DOUBLE PRECISION, INTENT(IN) :: DR,DIMG(NY,NX)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NY,NX),DB(NY*NX)
+      DOUBLE PRECISION :: DXC,DYC,DTMP
+      DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:),DFLAG(:,:),
+     &  DSAMPLEX(:),DSAMPLEY(:),DXI(:,:),DYI(:,:)
+      DXC=0.5D0*(DBLE(NX+1))
+      DYC=0.5D0*(DBLE(NY+1))
+      NPARAMS=(N+1)*(N+2)/2
+      NSAMPLES=0
+      ALLOCATE(DSAMPLEX(NX*NY))
+      ALLOCATE(DSAMPLEY(NX*NY))
+      ALLOCATE(DFLAG(NY,NX))
+      ALLOCATE(DXI(NY,NX))
+      ALLOCATE(DYI(NY,NX))
+      DO X=1,NX
+        DO Y=1,NY
+          DXI(Y,X)=DBLE(X)
+          DYI(Y,X)=DBLE(Y)
+          DTMP=DSQRT((DBLE(X)-DXC)*(DBLE(X)-DXC)+
+     &      (DBLE(Y)-DYC)*(DBLE(Y)-DYC))
+          IF(DTMP.GE.DR)THEN
+            DFLAG(Y,X)=1.0D0
+            NSAMPLES=NSAMPLES+1
+            DB(NSAMPLES)=DIMG(Y,X)
+            DSAMPLEX(NSAMPLES)=DBLE(X)
+            DSAMPLEY(NSAMPLES)=DBLE(Y)
+          ELSE
+            DFLAG(Y,X)=0.0D0
+          ENDIF
+        ENDDO
+      ENDDO
+      ALLOCATE(A(NSAMPLES,NPARAMS))
+      L=1
+      DO K=0,N
+        DO PX=0,K
+          PY=K-PX
+          A(1:NSAMPLES,L)=DEXP(DLOG(DSAMPLEX(1:NSAMPLES))*DBLE(PX))*
+     &      DEXP(DLOG(DSAMPLEY(1:NSAMPLES))*DBLE(PY))
+          L=L+1
+        END DO
+      END DO
+      DEALLOCATE(DSAMPLEX)
+      DEALLOCATE(DSAMPLEY)
+      LDA=NSAMPLES
+      LDB=MAX(NSAMPLES,NPARAMS)
+      LWORK=-1
+      ALLOCATE(WORK(1))
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
+     &  LWORK,INFO)
+      LWORK=INT(WORK(1))
+      DEALLOCATE(WORK)
+      ALLOCATE(WORK(LWORK))
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
+     &  LWORK,INFO)
+      DEALLOCATE(WORK)
+      DEALLOCATE(A)
+      IF (INFO.GT.0)THEN
+        PRINT *,'The least-squares solution could not be computed ',
+     &    'because A does not have full rank.'
+        RETURN
+      ENDIF
+      IF (INFO.LT.0)THEN
+        PRINT *,'The argument has illegal value: ',ABS(INFO)
+        RETURN
+      ENDIF
+      DBG=0.0D0
+      L=1
+      DO K=0,N
+        DO PX=0,K
+          PY=K-PX
+          DBG=DBG+DB(L)*DEXP(DLOG(DXI)*DBLE(PX))*
+     &      DEXP(DLOG(DYI)*DBLE(PY))*DFLAG
+          L=L+1
+        END DO
+      END DO
+      DEALLOCATE(DFLAG)
+      DEALLOCATE(DXI)
+      DEALLOCATE(DYI)
+      RETURN
+      END SUBROUTINE BGFIT2PN
 C ******************************************************************************
       SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
       IMPLICIT NONE

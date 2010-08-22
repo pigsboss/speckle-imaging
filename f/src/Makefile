@@ -4,6 +4,9 @@ COPTIONS=-O3
 
 all: ffc subimage bgfit bgcut average si
 
+install: ffc subimage bgfit bgcut average si
+	cp ffc subimage bgfit bgcut average si ../../test
+
 ffc: ffc.o libspeckle.o
 	gfortran -o ffc ffc.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)

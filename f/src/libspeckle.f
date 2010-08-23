@@ -1,3 +1,38 @@
+C ******************************************************************************
+      SUBROUTINE CENTREIMAGE(NX,NY,DIMG)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NY,NX)
+      DOUBLE PRECISION :: DXC,DYC
+      INTERFACE
+      SUBROUTINE GETCENTROID(NX,NY,DIMG,DX,DY)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NY,NX)
+      DOUBLE PRECISION, INTENT(OUT) :: DX,DY
+      END SUBROUTINE GETCENTROID
+      END INTERFACE
+      CALL GETCENTROID(NX,NY,DIMG,DXC,DYC)
+      
+      RETURN
+      END SUBROUTINE CENTREIMAGE
+C ******************************************************************************
+      SUBROUTINE GETCENTROID(NX,NY,DIMG,DX,DY)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,X,Y
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NY,NX)
+      DOUBLE PRECISION, INTENT(OUT) :: DX,DY
+      DOUBLE PRECISION :: DXI(NY,NX),DYI(NY,NX)
+      DO X=1,NX
+        DO Y=1,NY
+          DXI(Y,X)=DBLE(X)
+          DYI(Y,X)=DBLE(Y)
+        END DO
+      END DO
+      DX=SUM(DXI*DIMG)/SUM(DIMG)
+      DY=SUM(DYI*DIMG)/SUM(DIMG)
+      RETURN
+      END SUBROUTINE
+C ******************************************************************************
       SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
       IMPLICIT NONE
       INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,NAXIS,NFOUND,GROUP

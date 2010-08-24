@@ -11,6 +11,10 @@ ffc: ffc.o libspeckle.o
 	gfortran -o ffc ffc.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+center: center.o libspeckle.o
+	gfortran -o center center.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
 subimage: subimage.o libspeckle.o
 	gfortran -o subimage subimage.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -107,6 +111,9 @@ isarec.o: isarec.f
 
 isa.o: isa.f
 	gfortran $(COPTIONS) -c -o isa.o isa.f $(CFLAGS)
+
+center.o: center.f
+	gfortran $(COPTIONS) -c -o center.o center.f $(CFLAGS)
 
 buildsmtest.o: buildsmtest.f
 	gfortran $(COPTIONS) -c -o buildsmtest.o buildsmtest.f $(CFLAGS)

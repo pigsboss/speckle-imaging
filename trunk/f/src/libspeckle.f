@@ -1,5 +1,5 @@
 C ******************************************************************************
-      SUBROUTINE CENTREIMAGE(NX,NY,DIMG)
+      SUBROUTINE CENTERIMAGE(NX,NY,DIMG)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NY,NX)
@@ -12,13 +12,15 @@ C ******************************************************************************
       END SUBROUTINE GETCENTROID
       END INTERFACE
       CALL GETCENTROID(NX,NY,DIMG,DXC,DYC)
-      
+      DIMG=EOSHIFT(EOSHIFT(DIMG,INT(FLOOR(0.5*REAL(1+NX))-DXC),0.0D0,2),
+     &  INT(FLOOR(0.5*REAL(1+NY))-DYC),0.0D0,1)
       RETURN
-      END SUBROUTINE CENTREIMAGE
+      END SUBROUTINE CENTERIMAGE
 C ******************************************************************************
       SUBROUTINE GETCENTROID(NX,NY,DIMG,DX,DY)
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: NX,NY,X,Y
+      INTEGER, INTENT(IN) :: NX,NY
+      INTEGER :: X,Y
       DOUBLE PRECISION, INTENT(IN) :: DIMG(NY,NX)
       DOUBLE PRECISION, INTENT(OUT) :: DX,DY
       DOUBLE PRECISION :: DXI(NY,NX),DYI(NY,NX)
@@ -35,21 +37,22 @@ C ******************************************************************************
 C ******************************************************************************
       SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
       IMPLICIT NONE
-      INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,NAXIS,NFOUND,GROUP
+      INTEGER :: STATUS,UNIT,RWMODE,BLOCKSIZE,NAXIS
       INTEGER, INTENT(OUT) :: NAXES(3)
       CHARACTER*(*), INTENT(IN) :: IMGFILE
       STATUS=0
       CALL FTGIOU(UNIT,STATUS)
       RWMODE=0
       CALL FTOPEN(UNIT,IMGFILE,RWMODE,BLOCKSIZE,STATUS)
-      CALL FTGKNJ(UNIT,'NAXIS',1,3,NAXES,NFOUND,STATUS)
-      IF (NFOUND .NE. 3)THEN
-        PRINT *,'IMAGESIZE failed to read the NAXIS keywords.'
+      CALL FTGIDM(UNIT,NAXIS,STATUS)
+      IF(NAXIS.NE.3)THEN
+        PRINT *,'dimensional fault: the image must have 3 axes.'
         RETURN
-      ENDIF
+      END IF
+      CALL FTGISZ(UNIT,3,NAXES,STATUS)
       CALL FTCLOS(UNIT, STATUS)
       CALL FTFIOU(UNIT, STATUS)
-      IF (STATUS .GT. 0)CALL PRINTERROR(STATUS)
+      IF(STATUS .GT. 0)CALL PRINTERROR(STATUS)
       RETURN
       END SUBROUTINE IMAGESIZE
 C ******************************************************************************

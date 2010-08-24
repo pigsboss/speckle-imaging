@@ -69,7 +69,7 @@ C
           PREFIX=ARG(INDEX(ARG,'-prefix=')+8:)
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
-          RETURN
+          STOP
         END IF
       END DO
       ALLOCATE(DIMG(NAXES(2),NAXES(1)))

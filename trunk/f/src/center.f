@@ -10,16 +10,19 @@ C  INFILE - Input filename.
 C  PREFIX - Prefix of output filename.
 C  ARG    - Command argument.
       IMPLICIT NONE
-      INTEGER :: NARGS,NAXES(3),STATUS,K
-      DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:)
+      INTEGER :: NARGS,NAXES(3),STATUS,K,HW,HH,X,Y,XC,YC,SHIFT(2)
+      INTEGER, PARAMETER :: BORDER=2,FITN=-1
+      DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:),DFLAG(:,:),DBG(:,:),
+     &  DPARAMS(:),DTMP(:,:)
       CHARACTER(LEN=256) :: INFILE,PREFIX,ARG,BASENAME,EXTNAME
       INTERFACE
       SUBROUTINE IMAGESIZE(FILENAME,NAXES)
       INTEGER, INTENT(IN) :: NAXES(3)
       CHARACTER(LEN=*), INTENT(IN) :: FILENAME
       END SUBROUTINE IMAGESIZE
-      SUBROUTINE CENTERIMAGE(NX,NY,DIMG)
+      SUBROUTINE CENTERIMAGE(NX,NY,DIMG,SHIFT,HW,HH)
       INTEGER, INTENT(IN) :: NX,NY
+      INTEGER, INTENT(OUT) :: SHIFT(2),HW,HH
       DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
       END SUBROUTINE CENTERIMAGE
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
@@ -36,6 +39,11 @@ C  ARG    - Command argument.
       DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
       CHARACTER(LEN=*), INTENT(IN) :: FILENAME
       END SUBROUTINE WRITEIMAGE
+      SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
+      INTEGER, INTENT(IN) :: NX,NY,N
+      DOUBLE PRECISION, INTENT(IN) :: DFLAG(NX,NY),DIMG(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NX,NY),DB(*)
+      END SUBROUTINE BGFIT2PN
       END INTERFACE
       STATUS=0
       NARGS=COMMAND_ARGUMENT_COUNT()
@@ -59,15 +67,83 @@ C  ARG    - Command argument.
           STOP
         END IF
       END DO
-      ALLOCATE(DIMG(NAXES(2),NAXES(1)),STAT=STATUS)
+      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'out of memory.'
         RETURN
       END IF
       CALL READIMAGE(INFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
-      CALL CENTERIMAGE(NAXES(1),NAXES(2),DIMG)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_ctr.fits',(/1,1,1/),
+      CALL CENTERIMAGE(NAXES(1),NAXES(2),DIMG,SHIFT,HW,HH)
+      WRITE(*,'(A,I3.1,A,I3.1,A)')' total shift: (',SHIFT(1),', ',
+     &  SHIFT(2),')'
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DIMG)
-      PRINT *,'output: '//TRIM(PREFIX)//'_ctr.fits'
+      PRINT *,'output: '//TRIM(PREFIX)//'_cen.fits'
+      ALLOCATE(DFLAG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      XC=INT(FLOOR(0.5*REAL(1+NAXES(1))))
+      YC=INT(FLOOR(0.5*REAL(1+NAXES(2))))
+      DO X=1,NAXES(1)
+        DO Y=1,NAXES(2)
+          IF(((IABS(X-XC).LT.HW).AND.(IABS(Y-YC).LT.HH)).AND.
+     &      ((IABS(X-XC).GE.HW-BORDER).OR.(IABS(Y-YC).GE.HH-BORDER)))
+     &      THEN
+            DFLAG(X,Y)=1.0D0
+          ELSE
+            DFLAG(X,Y)=0.0D0
+          END IF
+        END DO
+      END DO
+      ALLOCATE(DBG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DPARAMS(NINT(SUM(DFLAG))),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      PRINT *,'before fitting.'
+      CALL BGFIT2PN(NAXES(1),NAXES(2),DFLAG,DIMG,FITN,DBG,DPARAMS)
+      PRINT *,'after fitting.'
+      ALLOCATE(DTMP(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      DTMP=DIMG*DFLAG
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen_flag.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DFLAG)
+      PRINT *,'background flag: '//TRIM(PREFIX)//'_cen_flag.fits'
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen_bg.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DTMP)
+      PRINT *,'defined background: '//TRIM(PREFIX)//'_cen_bg.fits'
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen_bgfit.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DBG)
+      PRINT *,'fitted background: '//TRIM(PREFIX)//'_cen_bgfit.fits'
+      DTMP=(DIMG-DBG)*DFLAG
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen_bgres.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DTMP)
+      PRINT *,'fitting residual: '//TRIM(PREFIX)//'_cen_bgres.fits'
+      DTMP=DIMG-DBG
+      DO X=1,NAXES(1)
+        DO Y=1,NAXES(2)
+          IF(DTMP(X,Y).LT.0.0D0)THEN
+            DTMP(X,Y)=0.0D0
+          END IF
+        END DO
+      END DO
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_cen_sig.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DTMP)
+      PRINT *,'output signal: '//TRIM(PREFIX)//'_cen_sig.fits'
+      DEALLOCATE(DFLAG)
+      DEALLOCATE(DBG)
+      DEALLOCATE(DTMP)
+      DEALLOCATE(DPARAMS)
+      DEALLOCATE(DIMG)
       STOP
       END PROGRAM CENTER

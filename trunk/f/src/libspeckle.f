@@ -1,19 +1,57 @@
 C ******************************************************************************
-      SUBROUTINE CENTERIMAGE(NX,NY,DIMG)
+      SUBROUTINE CENTERIMAGE(NX,NY,DIMG,SHIFT,HW,HH)
+C  Variables:
+C  ==========
+C  NX,NY         - Size of dimension along x axis and y axis.
+C  K,KMAX        - Index of iteration, maximum of number of iterations.
+C  XC,YC         - Centre of image.
+C  DIMG          - Double precision valued image.
+C  DXC,DYC       - Centroid of image.
+C  HW,HH,DFLAG - Half width, half height, flag.
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY
-      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NY,NX)
-      DOUBLE PRECISION :: DXC,DYC
+      INTEGER, INTENT(OUT) :: SHIFT(2),HW,HH
+      INTEGER :: K,XC,YC,X,Y
+      INTEGER, PARAMETER :: KMAX=20
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
+      DOUBLE PRECISION :: DXC,DYC,DFLAG(NX,NY)
       INTERFACE
       SUBROUTINE GETCENTROID(NX,NY,DIMG,DX,DY)
       INTEGER, INTENT(IN) :: NX,NY
-      DOUBLE PRECISION, INTENT(IN) :: DIMG(NY,NX)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NX,NY)
       DOUBLE PRECISION, INTENT(OUT) :: DX,DY
       END SUBROUTINE GETCENTROID
       END INTERFACE
-      CALL GETCENTROID(NX,NY,DIMG,DXC,DYC)
-      DIMG=EOSHIFT(EOSHIFT(DIMG,INT(FLOOR(0.5*REAL(1+NX))-DXC),0.0D0,2),
-     &  INT(FLOOR(0.5*REAL(1+NY))-DYC),0.0D0,1)
+      XC=INT(FLOOR(0.5*REAL(1+NX)))
+      YC=INT(FLOOR(0.5*REAL(1+NY)))
+      HW=MIN(NX-XC,XC-1)
+      HH=MIN(NY-YC,YC-1)
+      SHIFT=0
+      DO K=1,KMAX
+        CALL GETCENTROID(NX,NY,DIMG,DXC,DYC)
+        WRITE(*,'(A,I2,A,F5.1,A,F5.1,A)')
+     &    ' loop',K,', centroid: (',DXC,', ',DYC,')'
+        IF((NINT(DXC).EQ.XC).AND.(NINT(DYC).EQ.YC))THEN
+          EXIT
+        ELSE
+          HW=MIN(XC+HW-NINT(DXC),NINT(DXC)-XC+HW)
+          HH=MIN(YC+HH-NINT(DYC),NINT(DYC)-YC+HH)
+          DO X=1,NX
+            DO Y=1,NY
+              IF((IABS(X-NINT(DXC)).GE.HW).OR.
+     &          (IABS(Y-NINT(DYC)).GE.HH))THEN
+                DFLAG(X,Y)=0.0D0
+              ELSE
+                DFLAG(X,Y)=1.0D0
+              END IF
+            END DO
+          END DO
+          DIMG=DIMG*DFLAG
+          SHIFT=SHIFT+(/NINT(DXC)-XC,NINT(DYC)-YC/)
+          DIMG=EOSHIFT(EOSHIFT(DIMG,NINT(DXC)-XC,0.0D0,1),
+     &     NINT(DYC)-YC,0.0D0,2)
+        END IF
+      END DO
       RETURN
       END SUBROUTINE CENTERIMAGE
 C ******************************************************************************
@@ -21,13 +59,13 @@ C ******************************************************************************
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY
       INTEGER :: X,Y
-      DOUBLE PRECISION, INTENT(IN) :: DIMG(NY,NX)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NX,NY)
       DOUBLE PRECISION, INTENT(OUT) :: DX,DY
-      DOUBLE PRECISION :: DXI(NY,NX),DYI(NY,NX)
+      DOUBLE PRECISION :: DXI(NX,NY),DYI(NX,NY)
       DO X=1,NX
         DO Y=1,NY
-          DXI(Y,X)=DBLE(X)
-          DYI(Y,X)=DBLE(Y)
+          DXI(X,Y)=DBLE(X)
+          DYI(X,Y)=DBLE(Y)
         END DO
       END DO
       DX=SUM(DXI*DIMG)/SUM(DIMG)
@@ -95,7 +133,11 @@ C ******************************************************************************
         LBUFFER=INT(FLOOR(DBLE(32*1024*1024/8)/DBLE(NPIXELS)))
       END IF
       NBUFFER=INT(CEILING(DBLE(NFRAMES)/DBLE(LBUFFER)))
-      ALLOCATE(DBUF(M,N,LBUFFER))
+      ALLOCATE(DBUF(M,N,LBUFFER),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
       DO K=1,NBUFFER
         L1=(K-1)*LBUFFER+1
         L2=MIN(K*LBUFFER,NFRAMES)
@@ -175,7 +217,11 @@ C
         RETURN
       END IF
       CALL FTCLOS(UNIT, STATUS)
-      ALLOCATE(DFLAT(NAXES(1)*NAXES(2)))
+      ALLOCATE(DFLAT(NAXES(1)*NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
       CALL AVERAGE(FLATFILE,(/FPIXELS(1),FPIXELS(2),1/),
      &  (/LPIXELS(1),LPIXELS(2),NAXES(3)/),DFLAT)
       CALL FTOPEN(UNIT,DARKFILE,RWMODE,BLOCKSIZE,STATUS)
@@ -196,7 +242,11 @@ C
         RETURN
       END IF
       CALL FTCLOS(UNIT, STATUS)
-      ALLOCATE(DDARK(NAXES(1)*NAXES(2)))
+      ALLOCATE(DDARK(NAXES(1)*NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
       CALL AVERAGE(DARKFILE,(/FPIXELS(1),FPIXELS(2),1/),
      &  (/LPIXELS(1),LPIXELS(2),NAXES(3)/),DDARK)
       IF (MAXVAL(DDARK) .GE. MINVAL(DFLAT))THEN
@@ -349,7 +399,7 @@ C ******************************************************************************
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       INTEGER, INTENT(INOUT), OPTIONAL :: BUFFERSIZE
-      INTEGER :: L,LF,LT,LR,K,NPIXELS,M,N,NFRAMES,LBUFFER
+      INTEGER :: L,LF,LT,LR,K,NPIXELS,M,N,NFRAMES,LBUFFER,STATUS
       CHARACTER*(*), INTENT(IN) :: FILENAME
       DOUBLE PRECISION, INTENT(OUT) :: ARRAY(LPIXELS(1)-FPIXELS(1)+1,
      &  LPIXELS(2)-FPIXELS(2)+1)
@@ -361,6 +411,7 @@ C ******************************************************************************
       CHARACTER*(*), INTENT(IN) :: FILENAME
       END SUBROUTINE READIMAGE
       END INTERFACE
+      STATUS=0
       M=LPIXELS(1)-FPIXELS(1)+1
       N=LPIXELS(2)-FPIXELS(2)+1
       NFRAMES=LPIXELS(3)-FPIXELS(3)+1
@@ -370,7 +421,11 @@ C ******************************************************************************
       ELSE
         LBUFFER=INT(FLOOR(DBLE(4*1024*1024)/DBLE(NPIXELS)))
       END IF
-      ALLOCATE(BUFFER(M,N,LBUFFER))
+      ALLOCATE(BUFFER(M,N,LBUFFER),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
       ARRAY=0
       LF=1
       DO L=1,INT(CEILING(DBLE(NFRAMES)/DBLE(LBUFFER)))
@@ -404,6 +459,130 @@ C ******************************************************************************
       READ(FILENAME(K+1:L),*) EXTNAME
       RETURN
       END SUBROUTINE RESOLVEPATH
+C ******************************************************************************
+      SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
+C  2-dimensional background fitting subroutine using N-th polynomials.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,N
+      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS,X,Y,L,PX,PY,K,
+     &  STATUS
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NX,NY),DFLAG(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NX,NY),DB(*)
+      DOUBLE PRECISION :: DXC,DYC
+      DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:),DXI(:,:),DYI(:,:),
+     &  DSAMPLEX(:),DSAMPLEY(:)
+      STATUS=0
+      DXC=0.5D0*(DBLE(NX+1))
+      DYC=0.5D0*(DBLE(NY+1))
+      NPARAMS=(N+1)*(N+2)/2
+      NSAMPLES=NINT(SUM(DFLAG))
+      WRITE(*,'(I6,A)'),NSAMPLES,' pixels have been sampled to'//
+     &  ' determine the fitted background.'
+      ALLOCATE(DSAMPLEX(NSAMPLES),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DSAMPLEY(NSAMPLES),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DXI(NX,NY),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DYI(NX,NY),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      NSAMPLES=0
+      DO X=1,NX
+        DO Y=1,NY
+          DXI(X,Y)=DBLE(X)
+          DYI(X,Y)=DBLE(Y)
+          IF(DFLAG(X,Y) .EQ. 1.0D0)THEN
+            NSAMPLES=NSAMPLES+1
+            DB(NSAMPLES)=DIMG(X,Y)
+            DSAMPLEX(NSAMPLES)=DBLE(X)
+            DSAMPLEY(NSAMPLES)=DBLE(Y)
+          END IF
+        END DO
+      END DO
+      IF(N.EQ.-1)THEN
+        PRINT *,'use maximum value.'
+        DB(1)=MAXVAL(DB(1:NSAMPLES))
+        DBG=DB(1)
+        RETURN
+      END IF
+      IF(N.EQ.0)THEN
+        PRINT *,'use constant average value.'
+      ELSE
+        WRITE(*,'(A,I2,A)')'use ',N,'-th polynomials.'
+      END IF
+      ALLOCATE(A(NSAMPLES,NPARAMS),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      L=1
+      DO K=0,N
+        DO PX=0,K
+          PY=K-PX
+          A(1:NSAMPLES,L)=DEXP(DLOG(DSAMPLEX(1:NSAMPLES))*DBLE(PX))*
+     &      DEXP(DLOG(DSAMPLEY(1:NSAMPLES))*DBLE(PY))
+          L=L+1
+        END DO
+      END DO
+      DEALLOCATE(DSAMPLEX)
+      DEALLOCATE(DSAMPLEY)
+      LDA=NSAMPLES
+      LDB=MAX(NSAMPLES,NPARAMS)
+      LWORK=-1
+      ALLOCATE(WORK(1),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
+     &  LWORK,INFO)
+      LWORK=INT(WORK(1))
+      DEALLOCATE(WORK)
+      ALLOCATE(WORK(LWORK),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
+     &  LWORK,INFO)
+      DEALLOCATE(WORK)
+      DEALLOCATE(A)
+      IF (INFO.GT.0)THEN
+        PRINT *,'The least-squares solution could not be computed ',
+     &    'because A does not have full rank.'
+        RETURN
+      ENDIF
+      IF (INFO.LT.0)THEN
+        PRINT *,'The argument has illegal value: ',ABS(INFO)
+        RETURN
+      ENDIF
+      DBG=0.0D0
+      L=1
+      DO K=0,N
+        DO PX=0,K
+          PY=K-PX
+          DBG=DBG+DB(L)*DEXP(DLOG(DXI)*DBLE(PX))*
+     &      DEXP(DLOG(DYI)*DBLE(PY))
+          L=L+1
+        END DO
+      END DO
+      DEALLOCATE(DXI)
+      DEALLOCATE(DYI)
+      RETURN
+      END SUBROUTINE BGFIT2PN
 C ******************************************************************************
       SUBROUTINE BGFIT2P0(M,N,D,IMG,BG,B)
       IMPLICIT NONE
@@ -612,93 +791,6 @@ C  BG is the output of this subroutine.
       DEALLOCATE(A)
       RETURN
       END SUBROUTINE BGFIT2P4
-C ******************************************************************************
-      SUBROUTINE BGFIT2PN(NX,NY,DR,DIMG,N,DBG,DB)
-C  2-dimensional background fitting subroutine using N-th polynomials.
-C
-      IMPLICIT NONE
-      INTEGER, INTENT(IN) :: NX,NY,N
-      INTEGER :: NSAMPLES,LWORK,INFO,LDA,LDB,NPARAMS,X,Y,L,PX,PY,K
-      DOUBLE PRECISION, INTENT(IN) :: DR,DIMG(NY,NX)
-      DOUBLE PRECISION, INTENT(OUT) :: DBG(NY,NX),DB(NY*NX)
-      DOUBLE PRECISION :: DXC,DYC,DTMP
-      DOUBLE PRECISION, ALLOCATABLE :: WORK(:),A(:,:),DFLAG(:,:),
-     &  DSAMPLEX(:),DSAMPLEY(:),DXI(:,:),DYI(:,:)
-      DXC=0.5D0*(DBLE(NX+1))
-      DYC=0.5D0*(DBLE(NY+1))
-      NPARAMS=(N+1)*(N+2)/2
-      NSAMPLES=0
-      ALLOCATE(DSAMPLEX(NX*NY))
-      ALLOCATE(DSAMPLEY(NX*NY))
-      ALLOCATE(DFLAG(NY,NX))
-      ALLOCATE(DXI(NY,NX))
-      ALLOCATE(DYI(NY,NX))
-      DO X=1,NX
-        DO Y=1,NY
-          DXI(Y,X)=DBLE(X)
-          DYI(Y,X)=DBLE(Y)
-          DTMP=DSQRT((DBLE(X)-DXC)*(DBLE(X)-DXC)+
-     &      (DBLE(Y)-DYC)*(DBLE(Y)-DYC))
-          IF(DTMP.GE.DR)THEN
-            DFLAG(Y,X)=1.0D0
-            NSAMPLES=NSAMPLES+1
-            DB(NSAMPLES)=DIMG(Y,X)
-            DSAMPLEX(NSAMPLES)=DBLE(X)
-            DSAMPLEY(NSAMPLES)=DBLE(Y)
-          ELSE
-            DFLAG(Y,X)=0.0D0
-          ENDIF
-        ENDDO
-      ENDDO
-      ALLOCATE(A(NSAMPLES,NPARAMS))
-      L=1
-      DO K=0,N
-        DO PX=0,K
-          PY=K-PX
-          A(1:NSAMPLES,L)=DEXP(DLOG(DSAMPLEX(1:NSAMPLES))*DBLE(PX))*
-     &      DEXP(DLOG(DSAMPLEY(1:NSAMPLES))*DBLE(PY))
-          L=L+1
-        END DO
-      END DO
-      DEALLOCATE(DSAMPLEX)
-      DEALLOCATE(DSAMPLEY)
-      LDA=NSAMPLES
-      LDB=MAX(NSAMPLES,NPARAMS)
-      LWORK=-1
-      ALLOCATE(WORK(1))
-      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
-     &  LWORK,INFO)
-      LWORK=INT(WORK(1))
-      DEALLOCATE(WORK)
-      ALLOCATE(WORK(LWORK))
-      CALL DGELS('N',NSAMPLES,NPARAMS,1,A,LDA,DB,LDB,WORK,
-     &  LWORK,INFO)
-      DEALLOCATE(WORK)
-      DEALLOCATE(A)
-      IF (INFO.GT.0)THEN
-        PRINT *,'The least-squares solution could not be computed ',
-     &    'because A does not have full rank.'
-        RETURN
-      ENDIF
-      IF (INFO.LT.0)THEN
-        PRINT *,'The argument has illegal value: ',ABS(INFO)
-        RETURN
-      ENDIF
-      DBG=0.0D0
-      L=1
-      DO K=0,N
-        DO PX=0,K
-          PY=K-PX
-          DBG=DBG+DB(L)*DEXP(DLOG(DXI)*DBLE(PX))*
-     &      DEXP(DLOG(DYI)*DBLE(PY))*DFLAG
-          L=L+1
-        END DO
-      END DO
-      DEALLOCATE(DFLAG)
-      DEALLOCATE(DXI)
-      DEALLOCATE(DYI)
-      RETURN
-      END SUBROUTINE BGFIT2PN
 C ******************************************************************************
       SUBROUTINE GETSNR(M,N,D,SNR,IMG,FTMETHOD)
       IMPLICIT NONE

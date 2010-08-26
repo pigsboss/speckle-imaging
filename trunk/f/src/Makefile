@@ -2,10 +2,14 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: ffc subimage bgfit bgcut average si
+all: ffc subimage bgfit bgcut average si center
 
-install: ffc subimage bgfit bgcut average si
-	cp ffc subimage bgfit bgcut average si ../../test
+install: ffc subimage bgfit bgcut average si center
+	cp ffc subimage bgfit bgcut average si center ../../test
+
+test: test.o libspeckle.o
+	gfortran -o test test.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 ffc: ffc.o libspeckle.o
 	gfortran -o ffc ffc.o libspeckle.o -lcfitsio \
@@ -69,6 +73,9 @@ ssa: ssa.o libspeckle.o ssarec.o
 
 ffc.o: ffc.f
 	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)
+
+test.o: test.f
+	gfortran $(COPTIONS) -c -o test.o test.f $(CFLAGS)
 
 smrec.o: smrec.f
 	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)

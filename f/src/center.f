@@ -1,4 +1,13 @@
       PROGRAM CENTER
+C  Purpose:
+C  ========
+C  align the centroid of the given image to its center gradually. then using the
+C  pixels locate on the border of the shifted image to determine the background.
+C
+C  Usage:
+C  ======
+C  center filename_input [-prefix=output] [-border=n] [-fit=fit_method]
+C
 C  Arguments:
 C  ==========
 C  NARGS  - Number of command arguments.
@@ -10,8 +19,9 @@ C  INFILE - Input filename.
 C  PREFIX - Prefix of output filename.
 C  ARG    - Command argument.
       IMPLICIT NONE
-      INTEGER :: NARGS,NAXES(3),STATUS,K,HW,HH,X,Y,XC,YC,SHIFT(2)
-      INTEGER, PARAMETER :: BORDER=2,FITN=-1
+      INTEGER :: NARGS,NAXES(3),STATUS,K,HW,HH,X,Y,XC,YC,SHIFT(2),BORDER
+     &  ,FITN
+      INTEGER, PARAMETER :: DEFAULTBORDER=2,DEFAULTFITN=-1
       DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:),DFLAG(:,:),DBG(:,:),
      &  DPARAMS(:),DTMP(:,:)
       CHARACTER(LEN=256) :: INFILE,PREFIX,ARG,BASENAME,EXTNAME
@@ -60,7 +70,11 @@ C  ARG    - Command argument.
       PREFIX=TRIM(BASENAME)
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
-        IF(INDEX(ARG,'-prefix=').GT.0)THEN
+        IF(INDEX(ARG,'-border=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-border=')+8:),*)BORDER
+        ELSE IF(INDEX(ARG,'-fit=p').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-fit=p')+6:),*)FITN
+        ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
           PREFIX=TRIM(ARG(INDEX(ARG,'-prefix=')+8:))
         ELSE
           PRINT *,'unknown argument '//ARG

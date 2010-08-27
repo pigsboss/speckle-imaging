@@ -10,6 +10,16 @@ C  center filename_input [-prefix=output] [-border=n] [-fit=fit_method]
 C
 C  Arguments:
 C  ==========
+C  filename_input - input filename.
+C  prefix         - optional, prefix of output filename.
+C  border         - optional, border width of rectangular signal region.
+C  fit            - optional, fitting method. permitted values: -1, 0, ..., n.
+C                   -1 indicates maximum value method, while 0 indicates
+C                   constant average background, and positive values indicate
+C                   polynomials fitting methods.
+C
+C  Variables:
+C  ==========
 C  NARGS  - Number of command arguments.
 C  NAXES  - Lengths of axes of image.
 C  STATUS - Status.
@@ -57,6 +67,30 @@ C  ARG    - Command argument.
       END INTERFACE
       STATUS=0
       NARGS=COMMAND_ARGUMENT_COUNT()
+      CALL GET_COMMAND_ARGUMENT(1,ARG)
+      IF(INDEX(ARG,'-help').GT.0)THEN
+        PRINT *,'Usage:'
+        PRINT *,'======'
+        PRINT *,'center filename_input [-prefix=output] [-border=n]'//
+     &    ' [-fit=fit_method]'
+        PRINT *,'Arguments:'
+        PRINT *,'=========='
+        PRINT *,'filename_input - input filename.'
+        PRINT *,'prefix         - optional, prefix of output filename.'
+        PRINT *,'border         '//
+     &    '- optional, border width of rectangular signal region.'
+        PRINT *,'fit            '//
+     &    '- optional, fitting method. permitted values: -1, 0, ..., n.'
+        PRINT *,'                 '//
+     &    '-1 indicates maximum value method, while 0 indicates'
+        PRINT *,'                 '//
+     &    'constant average background, and positive values indicate'
+        PRINT *,'                 '//
+     &    'polynomials fitting methods.'
+        STOP
+      END IF
+      BORDER=DEFAULTBORDER
+      FITN=DEFAULTFITN
       CALL GET_COMMAND_ARGUMENT(1,INFILE)
       PRINT *,'input: ',TRIM(INFILE)
       CALL IMAGESIZE(INFILE,NAXES)
@@ -72,8 +106,8 @@ C  ARG    - Command argument.
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-border=').GT.0)THEN
           READ(ARG(INDEX(ARG,'-border=')+8:),*)BORDER
-        ELSE IF(INDEX(ARG,'-fit=p').GT.0)THEN
-          READ(ARG(INDEX(ARG,'-fit=p')+6:),*)FITN
+        ELSE IF(INDEX(ARG,'-fit=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-fit=')+6:),*)FITN
         ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
           PREFIX=TRIM(ARG(INDEX(ARG,'-prefix=')+8:))
         ELSE

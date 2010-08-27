@@ -32,6 +32,13 @@ C
       END SUBROUTINE SPECKLEINTERFEROMETRY
       END INTERFACE
       NARGS=COMMAND_ARGUMENT_COUNT()
+      CALL GET_COMMAND_ARGUMENT(1,ARG)
+      IF(INDEX(ARG,'-help').GT.0)THEN
+        PRINT *,'Usage:'
+        PRINT *,'======'
+        PRINT *,'si filename_target filename_reference '//
+     &    '[-target-range=m,n] [-ref-range=m,n] [-prefix=...]'
+      END IF
       PX=0
       PY=0
       CALL GET_COMMAND_ARGUMENT(1,TFILE)

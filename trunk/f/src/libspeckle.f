@@ -1,3 +1,78 @@
+      SUBROUTINE SHIFTADD(INFILE,NRNG,RNG,PREFIX)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG)
+      INTEGER, PARAMETER :: BUFFERSIZE=64
+      INTEGER :: STATUS,K,L,L1,L2,NR,LBUFFER,NBUFS,NB,NAXES(3),
+     &  XM,YM,XC,YC,NFRAMES
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DIMG(:,:)
+      CHARACTER(LEN=*), INTENT(IN) :: INFILE,PREFIX
+      INTERFACE
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      END INTERFACE
+      STATUS=0
+      WRITE(*,'(A,I3,A)')' buffer size: ',BUFFERSIZE,'MB'
+      CALL IMAGESIZE(INFILE,NAXES)
+      XC=INT(FLOOR(0.5*REAL(1+NAXES(1))))
+      YC=INT(FLOOR(0.5*REAL(1+NAXES(2))))
+      WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
+      WRITE(*,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
+      DO NR=1,NRNG
+        WRITE(*,'(A,I3,A,I5,A,I5)')' range ',NR,': from ',
+     &    RNG(1,NR),' to ',RNG(2,NR)
+      END DO
+      ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUFFER),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      DIMG=0.0D0
+      NFRAMES=0
+      DO NR=1,NRNG
+        NBUFS=CEILING(DBLE(RNG(2,NR)+1-RNG(1,NR))/DBLE(LBUFFER))
+        DO NB=1,NBUFS
+          L1=RNG(1,NR)+(NB-1)*LBUFFER
+          L2=MIN(RNG(1,NR)+NB*LBUFFER-1,RNG(2,NR))
+          CALL READIMAGE(INFILE,
+     &     (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
+          DO L=1,L2+1-L1
+            NFRAMES=NFRAMES+1
+            XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
+            YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
+            WRITE(*,'(A,I5,A,I3,A,I3,A)')' maximum location ',
+     &        NFRAMES,': (',XM,', ',YM,')'
+            DIMG=DIMG+EOSHIFT(EOSHIFT(DBUF(:,:,L),
+     &        YM-YC,0.0D0,2),XM-XC,0.0D0,1)
+          END DO
+        END DO
+      END DO
+      DIMG=DIMG/DBLE(NFRAMES)
+      DEALLOCATE(DBUF)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_ssa.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DIMG)
+      PRINT *,'output: '//TRIM(PREFIX)//'_ssa.fits'
+      DEALLOCATE(DIMG)
+      RETURN
+      END SUBROUTINE SHIFTADD
 C ******************************************************************************
       SUBROUTINE CENTERIMAGE(NX,NY,DIMG,SHIFT,HW,HH)
 C  Variables:

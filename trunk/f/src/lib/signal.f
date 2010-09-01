@@ -126,16 +126,18 @@ C ******************************************************************************
       SUBROUTINE ESTSNR(IMGFILE,FLAGFILE,FITN,DSNR,PREFIX)
 C  Estimate the signal-to-noise ratio of given image.
 C
+C  Purpose:
+C  ========
+C  estimate_snr = var(signal) / var(noise)
+C
       IMPLICIT NONE
-      INCLUDE 'fftw3.f'
       INTEGER, INTENT(IN) :: FITN
-      INTEGER :: STATUS,PLAN,NAXES(3),K,X,Y,NSAMPLES
+      INTEGER :: STATUS,NAXES(3),K,X,Y,NSAMPLES
       INTEGER, PARAMETER :: NBIN=20
       DOUBLE PRECISION, INTENT(OUT) :: DSNR
-      DOUBLE PRECISION :: DMAX,DMIN,DMU,DSIGMA
+      DOUBLE PRECISION :: DMAX,DMIN,DMU,DSIGMA,DSVAR,DNVAR
       DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:),DFLAG(:,:),DBG(:,:),
      &  DB(:),DHIST(:)
-      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:)
       CHARACTER(LEN=*), INTENT(IN) :: IMGFILE,FLAGFILE,PREFIX
       INTERFACE
       SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
@@ -207,16 +209,28 @@ C
      &      DHIST(NINT((DBG(X,Y)-DMIN)/(DMAX-DMIN)*DBLE(NBIN-1))+1)
         END DO
       END DO
+      PRINT *,'parameters of histogram:'
+      PRINT *,'========================'
       DHIST=DHIST/DBLE(NSAMPLES)
       DO K=1,NBIN
         WRITE(*,'(A,I2,A,ES10.3)')' x=',K,', y=',DHIST(K)
       END DO
+      PRINT *,'========================'
       DMU=SUM(DBG)/DBLE(NSAMPLES)
       DBG=DBG-DMU
-      DSIGMA=DSQRT(SUM(DBG*DBG)/DBLE(NSAMPLES))
+      DNVAR=SUM(DBG*DBG)/DBLE(NSAMPLES)
+      DSIGMA=DSQRT(DNVAR)
       DBG=DBG/DSIGMA
       WRITE(*,'(A,ES9.2,A,ES9.2,A,ES9.2,A,ES9.2)')
-     &  ' min:',DMIN,'max:',DMAX,' N(',DMU,',',DSIGMA,')'
+     &  ' min = ',DMIN,', max = ',DMAX,', mean = ',DMU,', std = ',DSIGMA
+      DMU=SUM(DIMG)/DBLE(NAXES(1)*NAXES(2))
+      WRITE(*,'(A,ES9.2)')' mean value of signal (given image): ',DMU
+      DIMG=DIMG-DMU
+      DSVAR=SUM(DIMG*DIMG)/DBLE(NAXES(1)*NAXES(2))
+      WRITE(*,'(A,ES9.2,ES9.2)')' variance of signal and noise: ',
+     &  DSVAR,DNVAR
+      DSNR=DSVAR/DNVAR
+      WRITE(*,'(A,ES9.2)')' estimated SNR: ',DSNR
       DEALLOCATE(DIMG)
       DEALLOCATE(DFLAG)
       DEALLOCATE(DBG)
@@ -286,7 +300,7 @@ C
       IF(N.EQ.0)THEN
         PRINT *,'use constant average value.'
       ELSE
-        WRITE(*,'(A,I2,A)')'use ',N,'-th polynomials.'
+        WRITE(*,'(A,I2,A)')' use ',N,'-th polynomials.'
       END IF
       ALLOCATE(A(NSAMPLES,NPARAMS),STAT=STATUS)
       IF(STATUS.NE.0)THEN

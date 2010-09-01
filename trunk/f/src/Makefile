@@ -2,13 +2,17 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 COPTIONS=-O3
 
-all: ffc subimage bgfit bgcut average si center ssa
+all: ffc subimage bgfit bgcut average si center ssa snr
 
-install: ffc subimage bgfit bgcut average si center ssa
-	cp ffc subimage bgfit bgcut average si center ssa ../../test
+install: ffc subimage bgfit bgcut average si center ssa snr
+	cp ffc subimage bgfit bgcut average si center ssa snr ../../test
 
 test: test.o libspeckle.o
 	gfortran -o test test.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+snr: snr.o libspeckle.o
+	gfortran -o snr snr.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 ffc: ffc.o libspeckle.o
@@ -71,6 +75,9 @@ deconvclean: deconvclean.o libspeckle.o
 	gfortran -o deconvclean deconvclean.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+snr.o: snr.f
+	gfortran $(COPTIONS) -c -o snr.o snr.f $(CFLAGS)
+
 ffc.o: ffc.f
 	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)
 
@@ -92,7 +99,7 @@ bgfit.o: bgfit.f
 bgcut.o: bgcut.f
 	gfortran $(COPTIONS) -c -o bgcut.o bgcut.f $(CFLAGS)
 
-libspeckle.o: libspeckle.f
+libspeckle.o: libspeckle.f lib/math.f lib/signal.f lib/image.f lib/reconstruct.f
 	gfortran $(COPTIONS) -c -o libspeckle.o libspeckle.f $(CFLAGS)
 
 deconvclean.o: deconvclean.f

@@ -535,6 +535,108 @@ C ******************************************************************************
       RETURN
       END SUBROUTINE RESOLVEPATH
 C ******************************************************************************
+      SUBROUTINE ESTSNR(IMGFILE,FLAGFILE,FITN,DSNR,PREFIX)
+C  Estimate the signal-to-noise ratio of given image.
+C
+      IMPLICIT NONE
+      INCLUDE 'fftw3.f'
+      INTEGER, INTENT(IN) :: FITN
+      INTEGER :: STATUS,PLAN,NAXES(3),K,X,Y,NSAMPLES
+      INTEGER, PARAMETER :: NBIN=20
+      DOUBLE PRECISION, INTENT(OUT) :: DSNR
+      DOUBLE PRECISION :: DMAX,DMIN,DMU,DSIGMA
+      DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:),DFLAG(:,:),DBG(:,:),
+     &  DB(:),DHIST(:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:)
+      CHARACTER(LEN=*), INTENT(IN) :: IMGFILE,FLAGFILE,PREFIX
+      INTERFACE
+      SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
+      INTEGER, INTENT(IN) :: NX,NY,N
+      DOUBLE PRECISION, INTENT(IN) :: DFLAG(NX,NY),DIMG(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NX,NY),DB(*)
+      END SUBROUTINE BGFIT2PN
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(IN) :: NAXES(3)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      END INTERFACE
+      CALL IMAGESIZE(IMGFILE,NAXES)
+      WRITE(*,'(A,I3,A,I3)')' input image size: ',NAXES(1),' x ',
+     &  NAXES(2)
+      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL READIMAGE(IMGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
+      ALLOCATE(DFLAG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL READIMAGE(FLAGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DFLAG)
+      NSAMPLES=NINT(SUM(DFLAG))
+      WRITE(*,'(A,I5)')' number of flagged samples:',NSAMPLES
+      ALLOCATE(DBG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DB(NAXES(1)*NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL BGFIT2PN(NAXES(1),NAXES(2),DFLAG,DIMG,FITN,DBG,DB)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_snr_bg.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DBG)
+      PRINT *,'fitted background: '//TRIM(PREFIX)//'_snr_bg.fits'
+      ALLOCATE(DHIST(NBIN),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      DBG=(DBG-DIMG)*DFLAG
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_snr_res.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DBG)
+      PRINT *,'background residual: '//TRIM(PREFIX)//'_snr_res.fits'
+      DMAX=MAXVAL(DBG)
+      DMIN=MINVAL(DBG)
+      DHIST=0.0D0
+      DO X=1,NAXES(1)
+        DO Y=1,NAXES(2)
+          DHIST(NINT((DBG(X,Y)-DMIN)/(DMAX-DMIN)*DBLE(NBIN-1))+1)=1.0D0+
+     &      DHIST(NINT((DBG(X,Y)-DMIN)/(DMAX-DMIN)*DBLE(NBIN-1))+1)
+        END DO
+      END DO
+      DHIST=DHIST/DBLE(NSAMPLES)
+      DO K=1,NBIN
+        WRITE(*,'(A,I2,A,ES10.3)')' x=',K,', y=',DHIST(K)
+      END DO
+      DMU=SUM(DBG)/DBLE(NSAMPLES)
+      DBG=DBG-DMU
+      DSIGMA=DSQRT(SUM(DBG*DBG)/DBLE(NSAMPLES))
+      DBG=DBG/DSIGMA
+      WRITE(*,'(A,ES9.2,A,ES9.2,A,ES9.2,A,ES9.2)')
+     &  ' min:',DMIN,'max:',DMAX,' N(',DMU,',',DSIGMA,')'
+      DEALLOCATE(DIMG)
+      DEALLOCATE(DFLAG)
+      DEALLOCATE(DBG)
+      DEALLOCATE(DB)
+      DEALLOCATE(DHIST)
+      RETURN
+      END SUBROUTINE ESTSNR
+C ******************************************************************************
       SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
 C  2-dimensional background fitting subroutine using N-th polynomials.
 C

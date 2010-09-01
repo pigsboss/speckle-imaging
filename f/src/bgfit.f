@@ -1,7 +1,8 @@
       PROGRAM BGFIT
 C  Usage:
 C  ======
-C  bgfit filename_avg [-r=radius] [-fit=fit_method] [-prefix=...]
+C  bgfit filename_avg [-flag=filename] [-round=x_c,y_c,radius]
+C    [-fit=fit_method] [-prefix=output]
 C
 C  Purpose:
 C  ========
@@ -10,17 +11,14 @@ C  average image.
 C
 C  Arguments:
 C  ==========
-C  filename_avg - filename of average image.
-C  radius       - radius of the signal region.
-C  fit_method   - fitting method, such as 'p0', 'p2', and 'p4'.
-C  prefix       - prefix of output filenames.
 C
       IMPLICIT NONE
       INTEGER :: STATUS,NAXES(3),NPARAMS,K,X,Y,NARGS,N,MAXN,NSAMPLES
       DOUBLE PRECISION :: DR,DXC,DYC,DTMP
       DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:),DBG(:,:),DFLAG(:,:),
      &  DPARAMS(:)
-      CHARACTER(LEN=256) :: AVGFILE,PREFIX,FTMETHOD,ARG,BASENAME,EXTNAME
+      CHARACTER(LEN=256) :: AVGFILE,PREFIX,FTMETHOD,ARG,BASENAME,
+     &  EXTNAME,FLAGFILE
       INTERFACE
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
       CHARACTER*(*), INTENT(IN) :: PATH
@@ -32,8 +30,8 @@ C
       END SUBROUTINE IMAGESIZE
       SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
       INTEGER, INTENT(IN) :: NX,NY,N
-      DOUBLE PRECISION, INTENT(IN) :: DFLAG(NY,NX),DIMG(NY,NX)
-      DOUBLE PRECISION, INTENT(OUT) :: DBG(NY,NX),DB(NY*NX)
+      DOUBLE PRECISION, INTENT(IN) :: DFLAG(NX,NY),DIMG(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NX,NY),DB(*)
       END SUBROUTINE BGFIT2PN
       END INTERFACE
       STATUS=0
@@ -42,13 +40,49 @@ C
       CALL GET_COMMAND_ARGUMENT(1,AVGFILE)
       CALL IMAGESIZE(AVGFILE,NAXES)
       DR=0.5*DBLE(MIN(NAXES(1),NAXES(2)))
+      DXC=0.5D0*DBLE(NAXES(1)+1)
+      DYC=0.5D0*DBLE(NAXES(2)+1)
       FTMETHOD='all'
+      FLAGFILE=''
       CALL RESOLVEPATH(AVGFILE,BASENAME,EXTNAME)
       PREFIX=TRIM(BASENAME)
+      ALLOCATE(DFLAG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      DO X=1,NAXES(1)
+        DO Y=1,NAXES(2)
+          DTMP=DSQRT((DBLE(X)-DXC)*(DBLE(X)-DXC)+
+     &      (DBLE(Y)-DYC)*(DBLE(Y)-DYC))
+          IF(DTMP.GE.DR)THEN
+            DFLAG(X,Y)=1.0D0
+          ELSE
+            DFLAG(X,Y)=0.0D0
+          END IF
+        END DO
+      END DO
+      NSAMPLES=NINT(SUM(DFLAG))
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
-        IF(INDEX(ARG,'-r=').GT.0)THEN
-          READ(ARG(INDEX(ARG,'-r=')+3:),*) DR
+        IF(INDEX(ARG,'-round=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-round=')+7:),*)DXC,DYC,DR
+          DO X=1,NAXES(1)
+            DO Y=1,NAXES(2)
+              DTMP=DSQRT((DBLE(X)-DXC)*(DBLE(X)-DXC)+
+     &          (DBLE(Y)-DYC)*(DBLE(Y)-DYC))
+              IF(DTMP.GE.DR)THEN
+                DFLAG(X,Y)=1.0D0
+              ELSE
+                DFLAG(X,Y)=0.0D0
+              END IF
+            END DO
+          END DO
+          NSAMPLES=NINT(SUM(DFLAG))
+        ELSE IF(INDEX(ARG,'-flag=').GT.0)THEN
+          FLAGFILE=ARG(INDEX(ARG,'-flag=')+6:)
+          CALL READIMAGE(FLAGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),
+     &      DFLAG)
         ELSE IF(INDEX(ARG,'-fit=').GT.0)THEN
           FTMETHOD=ARG(INDEX(ARG,'-fit=')+5:)
         ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
@@ -58,32 +92,17 @@ C
           STOP
         END IF
       END DO
-      ALLOCATE(DFLAG(NAXES(2),NAXES(1)),STAT=STATUS)
-      IF(STATUS.NE.0)THEN
-        PRINT *,'out of memory.'
-        RETURN
-      END IF
-      DXC=0.5D0*DBLE(NAXES(1)+1)
-      DYC=0.5D0*DBLE(NAXES(2)+1)
-      DO X=1,NAXES(1)
-        DO Y=1,NAXES(2)
-          DTMP=DSQRT((DBLE(X)-DXC)*(DBLE(X)-DXC)+
-     &      (DBLE(Y)-DYC)*(DBLE(Y)-DYC))
-          IF(DTMP.GE.DR)THEN
-            DFLAG(Y,X)=1.0D0
-          ELSE
-            DFLAG(Y,X)=0.0D0
-          END IF
-        END DO
-      END DO
-      NSAMPLES=NINT(SUM(DFLAG))
-      ALLOCATE(DIMG(NAXES(2),NAXES(1)),STAT=STATUS)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(FTMETHOD)//'_flag.fits'
+     &  ,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DFLAG)
+      PRINT *,'defined background region: ',
+     &  TRIM(PREFIX)//'_'//TRIM(FTMETHOD)//'_flag.fits'
+      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'out of memory.'
         RETURN
       END IF
       CALL READIMAGE(AVGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
-      ALLOCATE(DBG(NAXES(2),NAXES(1)),STAT=STATUS)
+      ALLOCATE(DBG(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'out of memory.'
         RETURN
@@ -92,7 +111,7 @@ C
       CALL WRITEIMAGE(TRIM(PREFIX)//'_bg.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DBG)
       PRINT *,'defined background: ',TRIM(PREFIX)//'_bg.fits'
-      ALLOCATE(DPARAMS(NAXES(2)*NAXES(1)),STAT=STATUS)
+      ALLOCATE(DPARAMS(NAXES(1)*NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'out of memory.'
         RETURN

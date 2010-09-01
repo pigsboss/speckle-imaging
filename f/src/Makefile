@@ -1,11 +1,13 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr
+
 COPTIONS=-O3
 
-all: ffc subimage bgfit bgcut average si center ssa snr
+all: $(ALL)
 
-install: ffc subimage bgfit bgcut average si center ssa snr
-	cp ffc subimage bgfit bgcut average si center ssa snr ../../test
+install: $(ALL)
+	cp $(ALL) ../../test
 
 test: test.o libspeckle.o
 	gfortran -o test test.o libspeckle.o -lcfitsio \
@@ -47,6 +49,10 @@ ssa: ssa.o libspeckle.o
 	gfortran -o ssa ssa.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+deconvwnr: deconvwnr.o libspeckle.o
+	gfortran -o deconvwnr deconvwnr.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -65,10 +71,6 @@ sm: sm.o libspeckle.o smrec.o
 
 isa: isa.o libspeckle.o isarec.o
 	gfortran -o isa isa.o libspeckle.o isarec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-deconvwnr: deconvwnr.o libspeckle.o
-	gfortran -o deconvwnr deconvwnr.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 deconvclean: deconvclean.o libspeckle.o
@@ -102,11 +104,11 @@ bgcut.o: bgcut.f
 libspeckle.o: libspeckle.f lib/math.f lib/signal.f lib/image.f lib/reconstruct.f
 	gfortran $(COPTIONS) -c -o libspeckle.o libspeckle.f $(CFLAGS)
 
-deconvclean.o: deconvclean.f
-	gfortran $(COPTIONS) -c -o deconvclean.o deconvclean.f $(CFLAGS)
-
 deconvwnr.o: deconvwnr.f
 	gfortran $(COPTIONS) -c -o deconvwnr.o deconvwnr.f $(CFLAGS)
+
+deconvclean.o: deconvclean.f
+	gfortran $(COPTIONS) -c -o deconvclean.o deconvclean.f $(CFLAGS)
 
 subimage.o: subimage.f
 	gfortran $(COPTIONS) -c -o subimage.o subimage.f $(CFLAGS)

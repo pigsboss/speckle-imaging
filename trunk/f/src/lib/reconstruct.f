@@ -288,7 +288,7 @@ C ******************************************************************************
       RETURN
       END SUBROUTINE DECONVCLEAN
 C ******************************************************************************
-      SUBROUTINE DECONVWNR(M,N,DG,DF,DH,DSNR)
+      SUBROUTINE DECONVWNR(NX,NY,DG,DF,DH,DSNR)
 C  Wiener deconvolution subroutine.
 C
 C  Purpose:
@@ -297,8 +297,8 @@ C  G = conv(F, H). This routine returns F.
 C
 C  Arguments:
 C  ==========
-C  M - Number of rows of G.
-C  N - Number of columns of G.
+C  NX - Number of rows of G.
+C  NY - Number of columns of G.
 C  DG - Input.
 C  DF - Output. size(F) = size(G).
 C  DH - Input. size(PSF) = size (G)
@@ -309,33 +309,34 @@ C  =============
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN
-      INTEGER :: M,N,INFO
-      DOUBLE PRECISION :: DG(M,N),DF(M,N),DH(M,N)
-      DOUBLE PRECISION :: DSNR
-      DOUBLE COMPLEX :: ZG(M,N),ZH(M,N)
-      DOUBLE COMPLEX :: ZIN(M,N),ZOUT(M,N),ZDECONV(M,N)
-      CALL DFFTW_INIT_THREADS(INFO)
-      IF (INFO .EQ. 0)THEN
-        PRINT *,'DFFTW_INIT_THREADS failed.'
-      END IF
-      CALL DFFTW_PLAN_WITH_NTHREADS(2)
-      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,-1,
+      INTEGER, INTENT(IN) :: NX,NY
+      INTEGER :: INFO
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY),DH(NX,NY),DSNR
+      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      DOUBLE COMPLEX :: ZG(NX,NY),ZH(NX,NY)
+      DOUBLE COMPLEX :: ZIN(NX,NY),ZOUT(NX,NY),ZDECONV(NX,NY)
+      INTERFACE
+      SUBROUTINE ZFFTSHIFT(NX,NY,ZX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZX(NX,NY)
+      END SUBROUTINE ZFFTSHIFT
+      END INTERFACE
+      CALL DFFTW_PLAN_DFT_2D(PLAN,NX,NY,ZIN,ZOUT,-1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       ZIN=CMPLX(DG)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       ZG=ZOUT
       ZIN=CMPLX(DH)
-      CALL ZFFTSHIFT(M,N,ZIN)
+      CALL ZFFTSHIFT(NX,NY,ZIN)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       ZH=ZOUT
-      ZDECONV=CONJG(ZH)/(ZH*CONJG(ZH)+CMPLX(DBLE(1)/DSNR))
-      CALL DFFTW_PLAN_DFT_2D(PLAN,M,N,ZIN,ZOUT,1,
+      ZDECONV=DCONJG(ZH)/(ZH*DCONJG(ZH)+CMPLX(DBLE(1)/DSNR))
+      CALL DFFTW_PLAN_DFT_2D(PLAN,NX,NY,ZIN,ZOUT,1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       ZIN=ZG*ZDECONV
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       DF=DBLE(ZOUT)
       CALL DFFTW_DESTROY_PLAN(PLAN)
-C     CALL DFFTW_CLEANUP_THREADS()
       RETURN
       END SUBROUTINE DECONVWNR
 C ******************************************************************************

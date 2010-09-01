@@ -3,7 +3,7 @@ C  Wiener deconvolution executable.
 C
 C  Usage:
 C  ======
-C  ./deconvwnr filename_g filename_h filename_f M N SNR [IMGRAD]
+C  deconvwnr filename_g -psf=filename_h -snr=SNR -o=filename_f
 C
 C  Purpose:
 C  ========
@@ -13,62 +13,73 @@ C  Arguments:
 C  ==========
 C  filename_g - input file. contains matrix g.
 C  filename_h - input file. contains matrix h.
+C  SNR        - signal-to-noise ratio.
 C  filename_f - output file. contains the estimate of matrix f.
-C  M - number of rows of g, h, and f.
-C  N - number of columns of g, h, and f.
-C  SNR --- P2 - uses 2nd polynomials to fit the background then estimates the
-C       |       SNR.
-C       |
-C       |- P4 - the same as P2 but uses 4th polymonials to fit the background.
-C       |
-C       |- Otherwise - take this argument as pre-estimated SNR.
-C  IMGRAD - required only if SNR is not given but should be estimate in this
-C           program.
 C
 C  Declaration:
 C  ============
-      INTEGER :: M,N
-      DOUBLE PRECISION :: DSNR,DIMGRAD
+      IMPLICIT NONE
+      INTEGER :: NAXES(3),NARGS,STATUS,K
+      DOUBLE PRECISION :: DSNR
       DOUBLE PRECISION, ALLOCATABLE :: DF(:,:),DG(:,:),DH(:,:)
-      CHARACTER :: ARG*80,FILEG*80,FILEH*80,FILEF*80
-C
-C  Main routine:
-C  =============
-      CALL GETARG(1,FILEG)
-      CALL GETARG(2,FILEH)
-      CALL GETARG(3,FILEF)
-      CALL GETARG(4,ARG)
-      READ(ARG,*) M
-      CALL GETARG(5,ARG)
-      READ(ARG,*) N
-      ALLOCATE(DG(M,N))
-      ALLOCATE(DH(M,N))
-      CALL READIMAGE(FILEG,(/1,1,1/),(/M,N,1/),DG)
-      CALL READIMAGE(FILEH,(/1,1,1/),(/M,N,1/),DH)
-      CALL GETARG(6,ARG)
-      IF (TRIM(ARG).EQ.'P2')THEN
-        CALL GETARG(7,ARG)
-        READ(ARG,*) DIMGRAD
-        CALL GETSNR(M,N,DIMGRAD,DSNR,DG,2)
-      ELSE IF (TRIM(ARG).EQ.'P4')THEN
-        CALL GETARG(7,ARG)
-        READ(ARG,*) DIMGRAD
-        CALL GETSNR(M,N,DIMGRAD,DSNR,DG,4)
-      ELSE IF (TRIM(ARG).EQ.'P0')THEN
-        CALL GETARG(7,ARG)
-        READ(ARG,*) DIMGRAD
-        CALL GETSNR(M,N,DIMGRAD,DSNR,DG,0)
-      ELSE
-        READ(ARG,*) DSNR
+      CHARACTER(LEN=256) :: ARG,FILEG,FILEH,FILEF,BASENAME,EXTNAME
+      INTERFACE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
+      CHARACTER(LEN=*), INTENT(IN) :: PATH
+      CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
+      END SUBROUTINE RESOLVEPATH
+      END INTERFACE
+      STATUS=0
+      NARGS=COMMAND_ARGUMENT_COUNT()
+      CALL GET_COMMAND_ARGUMENT(1,FILEG)
+      CALL GET_COMMAND_ARGUMENT(1,ARG)
+      IF(INDEX(ARG,'-help').GT.0)THEN
+        PRINT *,'Usage:'
+        PRINT *,'======'
+        PRINT *,'deconvwnr filename_g -psf=filename_h'//
+     &    ' -snr=SNR -o=filename_f'
+        STOP
       END IF
-      WRITE(*,'(A,ES10.3)') 'SNR = ',DSNR
-      ALLOCATE(DF(M,N))
-      CALL DECONVWNR(M,N,DG,DF,DH,DSNR)
-      CALL WRITEIMAGE(FILEF,(/1,1,1/),(/M,N,1/),DF)
-      WRITE(*,'(2A)') 'Output: ',TRIM(FILEF)
-C
-C  Deallocations:
-C  ==============
+      CALL RESOLVEPATH(FILEG,BASENAME,EXTNAME)
+      FILEF=TRIM(BASENAME)//'_wnr.fits'
+      CALL IMAGESIZE(FILEG,NAXES)
+      DO K=2,NARGS
+        CALL GET_COMMAND_ARGUMENT(K,ARG)
+        IF(INDEX(ARG,'-snr=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-snr=')+5:),*)DSNR
+        ELSE IF(INDEX(ARG,'-psf=').GT.0)THEN
+          FILEH=ARG(INDEX(ARG,'-psf=')+5:)
+        ELSE IF(INDEX(ARG,'-o=').GT.0)THEN
+          FILEF=ARG(INDEX(ARG,'-o=')+3:)
+        ELSE
+          PRINT *,'unknown argument '//ARG
+          STOP
+        END IF
+      END DO
+      ALLOCATE(DG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DH(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL READIMAGE(FILEG,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DG)
+      CALL READIMAGE(FILEH,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DH)
+      ALLOCATE(DF(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL DECONVWNR(NAXES(1),NAXES(2),DG,DF,DH,DSNR)
+      CALL WRITEIMAGE(FILEF,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DF)
+      PRINT *,'output: '//TRIM(FILEF)
       DEALLOCATE(DG)
       DEALLOCATE(DH)
       DEALLOCATE(DF)

@@ -37,6 +37,15 @@ C
       STATUS=0
       MAXN=8
       NARGS=COMMAND_ARGUMENT_COUNT()
+      CALL GET_COMMAND_ARGUMENT(1,ARG)
+      IF(INDEX(ARG,'-help').GT.0)THEN
+        PRINT *,'Usage:'
+        PRINT *,'======'
+        PRINT *,'bgfit filename_avg [-flag=filename]'//
+     &    ' [-round=x_c,y_c,radius] [-fit=fit_method]'//
+     &    ' [-prefix=output]'
+        STOP
+      END IF
       CALL GET_COMMAND_ARGUMENT(1,AVGFILE)
       CALL IMAGESIZE(AVGFILE,NAXES)
       DR=0.5*DBLE(MIN(NAXES(1),NAXES(2)))

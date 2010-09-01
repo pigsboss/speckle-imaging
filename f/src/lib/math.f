@@ -19,7 +19,7 @@ C
         END DO
       END DO
       RETURN
-      END SUBROUTINE MULTIPLYP
+      END SUBROUTINE MULTIPLYDP
 C ******************************************************************************
       SUBROUTINE INTEGRATEDP(NA,DPA,DXMIN,DXMAX,DS)
 C  Definite integration of double precision polynomial function.
@@ -42,9 +42,9 @@ C
       RETURN
       END SUBROUTINE INTEGRATEDP
 C ******************************************************************************
-      SUBROUTINE DLEGENDRE(DXMIN,DXMAX,NA,DLPA)
-      RETURN
-      END SUBROUTINE DLEGENDRE
+C      SUBROUTINE DLEGENDRE(DXMIN,DXMAX,NA,DLPA)
+C      RETURN
+C      END SUBROUTINE DLEGENDRE
 C ******************************************************************************
       SUBROUTINE DCORR2D(M,N,DA,DB,DC)
 C  correlation coefficients of 2-dimensional array.

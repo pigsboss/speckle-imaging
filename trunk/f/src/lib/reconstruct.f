@@ -1,94 +1,201 @@
-      SUBROUTINE ISAREC(OBSFILE,FPIXELS,LPIXELS,M,N,DREF,DBG,DISA,DR,
+      SUBROUTINE ITERATIVESHIFTADD(INFILE,NRNG,RNG,IFILE,RFILE,DSNR,
      &  NUMIT,PREFIX)
+C  Iterative shift-and-add subroutine.
 C
 C  Arguments:
 C  ==========
-C  OBSFILE - Observed fits file to process.
-C  FPIXELS - First pixels in each frame of the observed fits file.
-C  LPIXELS - Last pixels in each frame of the observed fits file.
-C  M       - Number of rows of DREF, DBG, and DISA.
-C  N       - Number of columns of DREF, DBG, and DISA.
-C  DREF    - Image of the reference star.
-C  DBG     - Background of the average of all frames of the observed fits file.
-C  DISA    - Input/Output. As input it is the initial estimate.
-C  DR      - Radius of the border of the signal in the image.
-C  NUMIT   - Number of iterations.
-C  PREFIX  - Prefix of output filename.
-C
 C
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
-      INTEGER*8 :: PLANF,PLANB
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3),M,N,NUMIT
-      INTEGER :: NPIXS,NUMFRM,K,L,INFO,X,Y
-      DOUBLE PRECISION, INTENT(IN) :: DREF(M,N),DBG(M,N),DR
-      DOUBLE PRECISION, INTENT(INOUT) :: DISA(M,N)
-      DOUBLE PRECISION :: DSNR,DRMS,DBETA
-      DOUBLE PRECISION, DIMENSION(M,N) :: DIMG,DCORE,WORK,DCORR
-      DOUBLE COMPLEX,DIMENSION(M,N) :: ZISA,ZIN,ZOUT
-      CHARACTER*(*), INTENT(IN) :: OBSFILE,PREFIX
-      CHARACTER(LEN=256) :: ISAFILE,NUMSTR
-      NPIXS=M*N
-      NUMFRM=LPIXELS(3)-FPIXELS(3)+1
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),NUMIT
+      INTEGER, PARAMETER :: BUFFERSIZE=64
+      INTEGER :: STATUS,K,L,L1,L2,NR,LBUFFER,NBUFS,NB,NAXES(3),
+     &  XM,YM,NFRAMES,PLANF,PLANB,INFO,NIT
+      DOUBLE PRECISION, INTENT(IN) :: DSNR
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DIMG(:,:),DREF(:,:),
+     $  DEST(:,:),DCORR(:,:),DRES(:,:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZEST(:,:)
+      CHARACTER(LEN=*), INTENT(IN) :: INFILE,IFILE,RFILE,PREFIX
+      CHARACTER(LEN=32) :: NUMSTR
+      INTERFACE
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE SHIFTADD(INFILE,NRNG,RNG,PREFIX)
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG)
+      CHARACTER(LEN=*), INTENT(IN) :: INFILE,PREFIX
+      END SUBROUTINE SHIFTADD
+      SUBROUTINE DECONVWNR(NX,NY,DG,DF,DH,DSNR)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY),DH(NX,NY),DSNR
+      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      END SUBROUTINE DECONVWNR
+      END INTERFACE
+      STATUS=0
+      WRITE(*,'(A,I3,A)')' buffer size: ',BUFFERSIZE,'MB'
+      CALL IMAGESIZE(INFILE,NAXES)
+      WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
+      WRITE(*,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
+      DO NR=1,NRNG
+        WRITE(*,'(A,I3,A,I5,A,I5)')' range ',NR,': from ',
+     &    RNG(1,NR),' to ',RNG(2,NR)
+      END DO
+      ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUFFER),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DEST(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL READIMAGE(IFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
+C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_init.fits',
+     &  (/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
+      PRINT *,'init: '//TRIM(PREFIX)//
+     &  '_isa_init.fits'
+      ALLOCATE(DREF(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL READIMAGE(RFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DREF)
+      DREF=DREF/SUM(DREF)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_psf.fits',
+     &  (/1,1,1/),(/NAXES(1),NAXES(2),1/),DREF)
+      PRINT *,'PSF: '//TRIM(PREFIX)//
+     &  '_isa_psf.fits'
       CALL DFFTW_INIT_THREADS(INFO)
-      IF (INFO .EQ. 0)THEN
+      IF(INFO .EQ. 0)THEN
         PRINT *,'DFFTW_INIT_THREADS failed.'
+        RETURN
       END IF
       CALL DFFTW_PLAN_WITH_NTHREADS(2)
-      CALL DFFTW_PLAN_DFT_2D(PLANF,M,N,ZIN,ZOUT,-1,
+      ALLOCATE(ZIN(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZOUT(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZEST(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DCORR(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DRES(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'out of memory.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_DFT_2D(PLANF,NAXES(1),NAXES(2),ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
-      CALL DFFTW_PLAN_DFT_2D(PLANB,M,N,ZIN,ZOUT,1,
+      CALL DFFTW_PLAN_DFT_2D(PLANB,NAXES(1),NAXES(2),ZIN,ZOUT,1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
-      DO L=1,NUMIT
-        WRITE(*,'(A,I4)') 'Loop =',L
-        WRITE(NUMSTR,*) L
-C       CALL GETSNR(M,N,DR,DSNR,DISA,0)
-        DBETA=0.5
-        CALL DECONVCLEAN(M,N,DISA,DCORE,DREF,DBETA,100000)
-        ISAFILE=TRIM(PREFIX)//'_ISA_CORE_'//
-     &    TRIM(ADJUSTL(NUMSTR))//'.FITS'
-        CALL WRITEIMAGE(ISAFILE,(/1,1,1/),(/M,N,1/),DCORE)
-        WORK=0.0
-        ZIN=CMPLX(DCORE)
+      DO NIT=1,NUMIT
+        WRITE(NUMSTR,*)NIT
+        NUMSTR=TRIM(ADJUSTL(NUMSTR))
+        WRITE(*,'(A,I2)')' iteration ',NIT
+        CALL DECONVWNR(NAXES(1),NAXES(2),DEST,DIMG,DREF,DSNR)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
+     &    '_core.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
+        PRINT *,'core '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'_core.fits'
+        ZIN=CMPLX(DIMG)
         CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
-        ZISA=CONJG(ZOUT)
-        DO K=FPIXELS(3),LPIXELS(3)
-          CALL READIMAGE(OBSFILE,(/FPIXELS(1),FPIXELS(2),K/),
-     &      (/LPIXELS(1),LPIXELS(2),K/),DIMG)
-          DIMG=DIMG/SUM(DIMG)*DBLE(NPIXS)-DBG
-          DIMG=DIMG/SUM(DIMG)*DBLE(NPIXS)
-          ZIN=CMPLX(DIMG)
-          CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
-          ZIN=ZOUT*ZISA
-          CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
-          DCORR=DBLE(ZOUT)
-C         CALL WRITEIMAGE('CORR.FITS',(/1,1,1/),(/M,N,1/),DCORR)
-          X=MAXLOC(MAXVAL(DCORR,1),2)
-          Y=MAXLOC(MAXVAL(DCORR,2),1)
-          IF (N-X.GT.X-1)THEN
-            X=X-1
-          ELSE
-            X=X-N
-          END IF
-          IF (M-Y.GT.Y-1)THEN
-            Y=Y-1
-          ELSE
-            Y=Y-M
-          END IF
-          WORK=WORK+EOSHIFT(EOSHIFT(DIMG,Y-1,DBLE(0),1),
-     &      X-1,DBLE(0),2)
+        ZEST=DCONJG(ZOUT)
+        DIMG=0.0D0
+        NFRAMES=0
+        DO NR=1,NRNG
+          NBUFS=CEILING(DBLE(RNG(2,NR)+1-RNG(1,NR))/DBLE(LBUFFER))
+          DO NB=1,NBUFS
+            L1=RNG(1,NR)+(NB-1)*LBUFFER
+            L2=MIN(RNG(1,NR)+NB*LBUFFER-1,RNG(2,NR))
+            CALL READIMAGE(INFILE,
+     &       (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
+            DO L=1,L2+1-L1
+              NFRAMES=NFRAMES+1
+              ZIN=CMPLX(DBUF(:,:,L))
+              CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+              ZIN=ZOUT*ZEST
+              CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
+              DCORR=DBLE(ZOUT)
+              XM=MAXLOC(MAXVAL(DCORR,2),1)
+              YM=MAXLOC(MAXVAL(DCORR,1),2)
+              WRITE(*,'(A,I5,A,I3,A,I3,A)')' maximum location ',
+     &          NFRAMES,': (',XM,', ',YM,')'
+              IF(NAXES(1)-XM .GT. XM-1)THEN
+                XM=XM-1
+              ELSE
+                XM=XM-NAXES(1)
+              END IF
+              IF(NAXES(2)-YM .GT. YM-1)THEN
+                YM=YM-1
+              ELSE
+                YM=YM-NAXES(2)
+              END IF
+              WRITE(*,'(A,I5,A,I3,A,I3,A)')' estimated shifts ',
+     &          NFRAMES,': (',XM,', ',YM,')'
+              DIMG=DIMG+EOSHIFT(EOSHIFT(DBUF(:,:,L),
+     &          YM,0.0D0,2),XM,0.0D0,1)
+            END DO
+          END DO
         END DO
-        WORK=WORK/DBLE(NUMFRM)
-        ISAFILE=TRIM(PREFIX)//'_ISA_'//TRIM(ADJUSTL(NUMSTR))//'.FITS'
-        CALL WRITEIMAGE(ISAFILE,(/1,1,1/),(/M,N,1/),WORK)
-        DRMS=SQRT(SUM((WORK-DISA)*(WORK-DISA))/DBLE(NPIXS))
-        WRITE(*,'(A,A,ES10.3)') TRIM(ISAFILE),', RMS =',DRMS
-        DISA=WORK
+        DIMG=DIMG/DBLE(NFRAMES)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
+     &    '.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
+        PRINT *,'output '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'.fits'
+        DRES=DIMG-DEST
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
+     &    '_res.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DRES)
+        PRINT *,'difference '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'_res.fits'
+        WRITE(*,'(A,ES10.3)')' total difference '//NUMSTR//': ',
+     &    DSQRT(SUM(DRES*DRES)/DBLE(NAXES(1)*NAXES(2)))
+        DEST=DIMG
       END DO
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
+      DEALLOCATE(DBUF)
+      DEALLOCATE(DIMG)
+      DEALLOCATE(DREF)
+      DEALLOCATE(DEST)
+      DEALLOCATE(DCORR)
+      DEALLOCATE(ZIN)
+      DEALLOCATE(DRES)
+      DEALLOCATE(ZOUT)
+      DEALLOCATE(ZEST)
       RETURN
-      END SUBROUTINE ISAREC
+      END SUBROUTINE ITERATIVESHIFTADD
 C ******************************************************************************
       SUBROUTINE SHIFTADD(INFILE,NRNG,RNG,PREFIX)
       IMPLICIT NONE
@@ -117,8 +224,8 @@ C ******************************************************************************
       STATUS=0
       WRITE(*,'(A,I3,A)')' buffer size: ',BUFFERSIZE,'MB'
       CALL IMAGESIZE(INFILE,NAXES)
-      XC=INT(FLOOR(0.5*REAL(1+NAXES(1))))
-      YC=INT(FLOOR(0.5*REAL(1+NAXES(2))))
+      XC=INT(CEILING(0.5*REAL(1+NAXES(1))))
+      YC=INT(CEILING(0.5*REAL(1+NAXES(2))))
       WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
       LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
@@ -338,45 +445,53 @@ C     PRINT *,'Finished planning.'
       RETURN
       END SUBROUTINE GETPSD
 C ******************************************************************************
-      SUBROUTINE DECONVCLEAN(M,N,DG,DF,DH,DBETA,MNUMIT)
+      SUBROUTINE DECONVCLEAN(NX,NY,DG,DF,DH,DBETA,NUMIT)
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: M,N
-      INTEGER :: X,Y,XC,YC,K,L,MNUMIT
-      DOUBLE PRECISION, INTENT(IN) :: DG(M,N),DH(M,N),DBETA
-      DOUBLE PRECISION, INTENT(OUT) :: DF(M,N)
-      DOUBLE PRECISION :: DRES(M,N),DPSF(M,N),DSNR,DR
-      XC=INT(CEILING(0.5*DBLE(N+1)))
-      YC=INT(CEILING(0.5*DBLE(M+1)))
-      DR=DBLE(0.5)*DBLE(MIN(M,N))
-      X=MAXLOC(MAXVAL(DH,1),2)
-      Y=MAXLOC(MAXVAL(DH,2),1)
-      DPSF=EOSHIFT(EOSHIFT(DH,Y-YC,DBLE(0),1),X-XC,DBLE(0),2)
+      INTEGER, INTENT(IN) :: NX,NY,NUMIT
+      INTEGER :: X,Y,XC,YC,K,L
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY),DH(NX,NY),DBETA
+      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      DOUBLE PRECISION :: DRES(NX,NY),DPSF(NX,NY),DTMP(NX,NY),DSTD
+      INTERFACE
+      END INTERFACE
+      XC=INT(CEILING(0.5*DBLE(NX+1)))
+      YC=INT(CEILING(0.5*DBLE(NY+1)))
+      X=MAXLOC(MAXVAL(DH,2),1)
+      Y=MAXLOC(MAXVAL(DH,1),2)
+      DPSF=EOSHIFT(EOSHIFT(DH,Y-YC,0.0D0,2),X-XC,0.0D0,1)
       DPSF=DPSF/SUM(DPSF)
       DRES=DG
       L=1
-      DO K=1,MNUMIT
+      DO K=1,NUMIT
         L=L+1
-        X=MAXLOC(MAXVAL(DRES,1),2)
-        Y=MAXLOC(MAXVAL(DRES,2),1)
-        DF(Y,X)=DF(Y,X)+DRES(Y,X)*DBETA
-        DRES=DRES-DRES(Y,X)*DBETA*EOSHIFT(EOSHIFT(DPSF,YC-Y,DBLE(0),1),
-     &    XC-X,DBLE(0),2)
-        IF (SUM(DRES) .LE. 0)THEN
+        X=MAXLOC(MAXVAL(DRES,2),1)
+        Y=MAXLOC(MAXVAL(DRES,1),2)
+        DF(X,Y)=DF(X,Y)+DRES(X,Y)*DBETA
+        DTMP=EOSHIFT(EOSHIFT(DPSF,YC-Y,0.0D0,2),XC-X,0.0D0,1)
+        DTMP=DTMP/SUM(DTMP)
+        DRES=DRES-DRES(X,Y)*DBETA*DTMP
+        IF (SUM(DRES) .LE. 0.0D0)THEN
           EXIT
         END IF
-        IF (L .GT. 100)THEN
+        IF (L .GT. 1000)THEN
           L=1
           PRINT *,'Loop: ',K
-          CALL GETSNR(M,N,DR,DSNR,DRES,'P4')
-          WRITE (*,'(A,ES10.3)') ' Residual SNR:',DSNR
+          DSTD=DSQRT(SUM((DRES-SUM(DRES)/DBLE(NX*NY))*
+     &      (DRES-SUM(DRES)/DBLE(NX*NY)))/DBLE(NX*NY))
+          WRITE (*,'(A,ES9.2,A,ES9.2)') ' deviation of residual: ',DSTD,
+     &      ', maximum of PSF: ',MAXVAL(DPSF)
           WRITE (*,'(A,ES10.3,A,ES10.3,A,ES10.3)')
      &     ' Residual sum:',SUM(DRES),
      &      ', CLEAN sum:',SUM(DF),', Total sum:',SUM(DF)+SUM(DRES)
           WRITE (*,'(A,I3,A,I3,A,ES10.3,ES10.3)')
      &      ' Maxima: (',X,',',Y,'),',MAXVAL(DRES),DRES(Y,X)
+          IF(DSTD .LE. MAXVAL(DPSF))THEN
+            PRINT *,'CLEAN deep enough, stop.'
+            EXIT
+          END IF
         END IF
       END DO
-      CALL WRITEIMAGE('CLEAN_RESIDUAL.FITS',(/1,1,1/),(/M,N,1/),DRES)
+      CALL WRITEIMAGE('CLEAN_RESIDUAL.FITS',(/1,1,1/),(/NX,NY,1/),DRES)
       RETURN
       END SUBROUTINE DECONVCLEAN
 C ******************************************************************************
@@ -402,9 +517,10 @@ C  =============
       INCLUDE 'fftw3.f'
       INTEGER*8 :: PLAN
       INTEGER, INTENT(IN) :: NX,NY
-      INTEGER :: INFO
+      INTEGER :: INFO,X,Y
       DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY),DH(NX,NY),DSNR
       DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      DOUBLE PRECISION :: DTMP
       DOUBLE COMPLEX :: ZG(NX,NY),ZH(NX,NY)
       DOUBLE COMPLEX :: ZIN(NX,NY),ZOUT(NX,NY),ZDECONV(NX,NY)
       INTERFACE
@@ -427,7 +543,16 @@ C  =============
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       ZIN=ZG*ZDECONV
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
-      DF=DBLE(ZOUT)
+      DF=DBLE(ZOUT)/DBLE(NX*NY)
+      DTMP=SUM(DF)
+      DO X=1,NX
+        DO Y=1,NY
+          IF(DF(X,Y) .LT. 0.0D0)THEN
+            DF(X,Y)=0.0D0
+          END IF
+        END DO
+      END DO
+      DF=DF*DTMP/SUM(DF)
       CALL DFFTW_DESTROY_PLAN(PLAN)
       RETURN
       END SUBROUTINE DECONVWNR

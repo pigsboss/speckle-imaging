@@ -79,7 +79,7 @@ C    =================================
         ELSE IF(INDEX(ARG,'-snr=').GT.0)THEN
           READ(ARG(INDEX(ARG,'-snr=')+5:),*)DSNR
         ELSE IF(INDEX(ARG,'-n=').GT.0)THEN
-          READ(ARG(INDEX(ARG,'-n=')+5:),*)NUMIT
+          READ(ARG(INDEX(ARG,'-n=')+3:),*)NUMIT
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
           STOP

@@ -150,8 +150,8 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
               DCORR=DBLE(ZOUT)
               XM=MAXLOC(MAXVAL(DCORR,2),1)
               YM=MAXLOC(MAXVAL(DCORR,1),2)
-              WRITE(*,'(A,I5,A,I3,A,I3,A)')' maximum location ',
-     &          NFRAMES,': (',XM,', ',YM,')'
+              WRITE(*,'(A,I5,A,I2,A,I3,A,I3,A)')' maximum location ',
+     &          NFRAMES,' in loop ',NIT,': (',XM,', ',YM,')'
               IF(NAXES(1)-XM .GT. XM-1)THEN
                 XM=XM-1
               ELSE
@@ -162,8 +162,8 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
               ELSE
                 YM=YM-NAXES(2)
               END IF
-              WRITE(*,'(A,I5,A,I3,A,I3,A)')' estimated shifts ',
-     &          NFRAMES,': (',XM,', ',YM,')'
+              WRITE(*,'(A,I5,A,I2,A,I3,A,I3,A)')' estimated shifts ',
+     &          NFRAMES,' in loop ',NIT,': (',XM,', ',YM,')'
               DIMG=DIMG+EOSHIFT(EOSHIFT(DBUF(:,:,L),
      &          YM,0.0D0,2),XM,0.0D0,1)
             END DO

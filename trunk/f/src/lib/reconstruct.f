@@ -10,8 +10,9 @@ C
       INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),NUMIT
       INTEGER, PARAMETER :: BUFFERSIZE=64,UNIT=8
       INTEGER :: STATUS,K,L,L1,L2,NR,LBUFFER,NBUFS,NB,NAXES(3),
-     &  XM,YM,NFRAMES,PLANF,PLANB,INFO,NIT
+     &  XM,YM,XC,YC,NFRAMES,PLANF,PLANB,INFO,NIT
       DOUBLE PRECISION, INTENT(IN) :: DSNR
+      DOUBLE PRECISION :: DSUM
       DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DIMG(:,:),DREF(:,:),
      $  DEST(:,:),DCORR(:,:),DRES(:,:)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZEST(:,:)
@@ -56,6 +57,8 @@ C
      &  NAXES(1),' x ',NAXES(2)
       WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
+      XC=INT(CEILING(0.5*REAL(NAXES(1)+1)))
+      XC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
       LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
       WRITE(*,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
       WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
@@ -81,6 +84,7 @@ C
         RETURN
       END IF
       CALL READIMAGE(IFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
+      DSUM=SUM(DEST)
 C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_init.fits',
      &  (/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
@@ -182,6 +186,10 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
           END DO
         END DO
         DIMG=DIMG/DBLE(NFRAMES)
+        XM=MAXLOC(MAXVAL(DIMG,2),1)
+        YM=MAXLOC(MAXVAL(DIMG,1),2)
+        DIMG=EOSHIFT(EOSHIFT(DIMG,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
+        DIMG=DIMG*(DSUM/SUM(DIMG))
         CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
      &    '.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
         WRITE(*,*)'output '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//

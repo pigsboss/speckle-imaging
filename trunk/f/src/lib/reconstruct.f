@@ -58,7 +58,7 @@ C
       WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
       XC=INT(CEILING(0.5*REAL(NAXES(1)+1)))
-      XC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
+      YC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
       LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
       WRITE(*,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
       WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'

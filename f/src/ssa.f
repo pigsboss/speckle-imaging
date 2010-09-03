@@ -15,7 +15,6 @@ C  =============
       INTEGER, PARAMETER :: MAXNRNG=100
       INTEGER :: STATUS,UNIT,RNG(2,MAXNRNG),NAXES(3),NARGS,K,NPIXELS,
      &  L,NRNG
-      DOUBLE PRECISION, ALLOCATABLE :: DIMG(:,:)
       CHARACTER(LEN=256) :: INFILE,PREFIX,ARG,BASENAME,EXTNAME
       INTERFACE
       SUBROUTINE IMAGESIZE(FILENAME,NAXES)
@@ -76,11 +75,6 @@ C    =================================
      &    ' to ',RNG(2,L)
       END DO
       PRINT *,'prefix of output: '//TRIM(PREFIX)
-      ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
-      IF(STATUS.NE.0)THEN
-        PRINT *,'out of memory.'
-        RETURN
-      END IF
       CALL SHIFTADD(INFILE,NRNG,RNG,PREFIX)
       STOP
       END PROGRAM SSA

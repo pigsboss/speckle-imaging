@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean
 
 COPTIONS=-O3
 
@@ -53,6 +53,14 @@ deconvwnr: deconvwnr.o libspeckle.o
 	gfortran -o deconvwnr deconvwnr.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+isa: isa.o libspeckle.o
+	gfortran -o isa isa.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+deconvclean: deconvclean.o libspeckle.o
+	gfortran -o deconvclean deconvclean.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -68,14 +76,6 @@ smtest: smtest.o libspeckle.o smrec.o
 sm: sm.o libspeckle.o smrec.o
 	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-isa: isa.o libspeckle.o isarec.o
-	gfortran -o isa isa.o libspeckle.o isarec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-deconvclean: deconvclean.o libspeckle.o
-	gfortran -o deconvclean deconvclean.o libspeckle.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 snr.o: snr.f
 	gfortran $(COPTIONS) -c -o snr.o snr.f $(CFLAGS)
@@ -118,9 +118,6 @@ ssa.o: ssa.f
 
 average.o: average.f
 	gfortran $(COPTIONS) -c -o average.o average.f $(CFLAGS)
-
-isarec.o: isarec.f
-	gfortran $(COPTIONS) -c -o isarec.o isarec.f $(CFLAGS)
 
 isa.o: isa.f
 	gfortran $(COPTIONS) -c -o isa.o isa.f $(CFLAGS)

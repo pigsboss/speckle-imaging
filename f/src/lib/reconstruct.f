@@ -8,7 +8,7 @@ C
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),NUMIT
-      INTEGER, PARAMETER :: BUFFERSIZE=64
+      INTEGER, PARAMETER :: BUFFERSIZE=64,UNIT=8
       INTEGER :: STATUS,K,L,L1,L2,NR,LBUFFER,NBUFS,NB,NAXES(3),
      &  XM,YM,NFRAMES,PLANF,PLANB,INFO,NIT
       DOUBLE PRECISION, INTENT(IN) :: DSNR
@@ -43,14 +43,26 @@ C
       END SUBROUTINE DECONVWNR
       END INTERFACE
       STATUS=0
+      OPEN(UNIT=UNIT,FILE=TRIM(PREFIX)//'_isa_summary.txt',
+     &  STATUS='REPLACE',ACTION='WRITE',IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'open file failed.'
+        RETURN
+      END IF
       WRITE(*,'(A,I3,A)')' buffer size: ',BUFFERSIZE,'MB'
+      WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFFERSIZE,'MB'
       CALL IMAGESIZE(INFILE,NAXES)
       WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
+      WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
       LBUFFER=NINT(DBLE(BUFFERSIZE*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
       WRITE(*,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
+      WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUFFER,' frames'
       DO NR=1,NRNG
         WRITE(*,'(A,I3,A,I5,A,I5)')' range ',NR,': from ',
+     &    RNG(1,NR),' to ',RNG(2,NR)
+        WRITE(UNIT,'(A,I3,A,I5,A,I5)')' range ',NR,': from ',
      &    RNG(1,NR),' to ',RNG(2,NR)
       END DO
       ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUFFER),STAT=STATUS)
@@ -72,8 +84,8 @@ C
 C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_init.fits',
      &  (/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
-      PRINT *,'init: '//TRIM(PREFIX)//
-     &  '_isa_init.fits'
+      WRITE(*,*)'initial estimate: '//TRIM(PREFIX)//'_isa_init.fits'
+      WRITE(UNIT,*)'initial estimate: '//TRIM(PREFIX)//'_isa_init.fits'
       ALLOCATE(DREF(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'out of memory.'
@@ -83,8 +95,8 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
       DREF=DREF/SUM(DREF)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_psf.fits',
      &  (/1,1,1/),(/NAXES(1),NAXES(2),1/),DREF)
-      PRINT *,'PSF: '//TRIM(PREFIX)//
-     &  '_isa_psf.fits'
+      WRITE(*,*)'PSF: '//TRIM(PREFIX)//'_isa_psf.fits'
+      WRITE(UNIT,*)'PSF: '//TRIM(PREFIX)//'_isa_psf.fits'
       CALL DFFTW_INIT_THREADS(INFO)
       IF(INFO .EQ. 0)THEN
         PRINT *,'DFFTW_INIT_THREADS failed.'
@@ -172,19 +184,26 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
         DIMG=DIMG/DBLE(NFRAMES)
         CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
      &    '.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
-        PRINT *,'output '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+        WRITE(*,*)'output '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'.fits'
+        WRITE(UNIT,*)'output '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
      &    '_isa_'//TRIM(NUMSTR)//'.fits'
         DRES=DIMG-DEST
         CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
      &    '_res.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DRES)
-        PRINT *,'difference '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+        WRITE(*,*)'difference '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'_res.fits'
+        WRITE(UNIT,*)'difference '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
      &    '_isa_'//TRIM(NUMSTR)//'_res.fits'
         WRITE(*,'(A,ES10.3)')' total difference '//NUMSTR//': ',
+     &    DSQRT(SUM(DRES*DRES)/DBLE(NAXES(1)*NAXES(2)))
+        WRITE(UNIT,'(A,ES10.3)')' total difference '//NUMSTR//': ',
      &    DSQRT(SUM(DRES*DRES)/DBLE(NAXES(1)*NAXES(2)))
         DEST=DIMG
       END DO
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
+      CLOSE(UNIT)
       DEALLOCATE(DBUF)
       DEALLOCATE(DIMG)
       DEALLOCATE(DREF)

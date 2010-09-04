@@ -1,3 +1,46 @@
+      SUBROUTINE GETBISP(IMGFILE,NRNG,RNG,W,ZBISP)
+C  Calculate the mean bispectrum of given images.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),W
+      INTEGER :: STATUS
+      INTEGER, PARAMETER :: UNIT=8
+      DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
+      CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
+      INTERFACE
+      FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
+      INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
+      INTEGER, INTENT(OUT) :: BISPOS
+      END FUNCTION BISPOS
+      END INTERFACE
+      STATUS=0
+      RETURN
+      END SUBROUTINE GETBISP
+C ******************************************************************************
+      FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
+C  Calculate position in bispectrum array according to positions of the
+C  frequency components in the spectrum matrices.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
+      INTEGER, INTENT(OUT) :: BISPOS
+      INTEGER :: K,L
+      K=1+NX*(NX+2)*Y2*(2*NY-Y2+1)/8
+      IF (X2 .LT. NX/2) THEN
+        BISPOS=K+X2*(X2+1)*(NY-Y2)/2+Y1*(X2+1)+X1
+        RETURN
+      END IF
+      IF (X2 .EQ. NX/2) THEN
+        BISPOS=K+NX*(NX+2)*(NY-Y2)/8+Y1*NX/2+X1
+        RETURN
+      END IF
+      IF (X2 .GT. NX/2) THEN
+        BISPOS=K+NX*(NX+2)*(NY-Y2)/8+
+     &    (3*NX-2*X2+2)*(2*X2-NX)*(NY-Y2)/8+Y1*(NX-X2)+X1
+        RETURN
+      END IF
+      END FUNCTION BISPOS
+C ******************************************************************************
       SUBROUTINE ITERATIVESHIFTADD(INFILE,NRNG,RNG,IFILE,RFILE,DSNR,
      &  NUMIT,PREFIX)
 C  Iterative shift-and-add subroutine.
@@ -143,7 +186,9 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
         CALL DECONVWNR(NAXES(1),NAXES(2),DEST,DIMG,DREF,DSNR)
         CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
      &    '_core.fits',(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
-        PRINT *,'core '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+        WRITE(*,*)'core '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
+     &    '_isa_'//TRIM(NUMSTR)//'_core.fits'
+        WRITE(UNIT,*)'core '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
      &    '_isa_'//TRIM(NUMSTR)//'_core.fits'
         ZIN=CMPLX(DIMG)
         CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
@@ -166,8 +211,6 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
               DCORR=DBLE(ZOUT)
               XM=MAXLOC(MAXVAL(DCORR,2),1)
               YM=MAXLOC(MAXVAL(DCORR,1),2)
-              WRITE(*,'(A,I5,A,I2,A,I3,A,I3,A)')' maximum location ',
-     &          NFRAMES,' in loop ',NIT,': (',XM,', ',YM,')'
               IF(NAXES(1)-XM .GT. XM-1)THEN
                 XM=XM-1
               ELSE

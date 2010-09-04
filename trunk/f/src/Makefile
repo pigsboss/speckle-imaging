@@ -9,8 +9,8 @@ all: $(ALL)
 install: $(ALL)
 	cp $(ALL) ../../test
 
-test: test.o libspeckle.o
-	gfortran -o test test.o libspeckle.o -lcfitsio \
+bispostest: bispostest.o libspeckle.o
+	gfortran -o bispostest bispostest.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 snr: snr.o libspeckle.o
@@ -83,8 +83,8 @@ snr.o: snr.f
 ffc.o: ffc.f
 	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)
 
-test.o: test.f
-	gfortran $(COPTIONS) -c -o test.o test.f $(CFLAGS)
+bispostest.o: bispostest.f
+	gfortran $(COPTIONS) -c -o bispostest.o bispostest.f $(CFLAGS)
 
 smrec.o: smrec.f
 	gfortran $(COPTIONS) -c -o smrec.o smrec.f $(CFLAGS)

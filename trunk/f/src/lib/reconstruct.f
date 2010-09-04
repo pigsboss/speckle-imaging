@@ -1,32 +1,131 @@
-      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,W,ZBISP)
+      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,Y2MAX,ZBISP)
 C  Calculate the mean bispectrum of given images.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
 C  unexpected result.
 C
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),W
-      INTEGER :: STATUS
+      INCLUDE 'fftw3.f'
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),Y2MAX
+      INTEGER, PARAMETER :: BUFSIZ=32
+      INTEGER :: PLAN,STATUS,LBUF,NBUF,LBISP,NAXES(3),NR,NBUFS,L,L1,L2,
+     &  NFRAMES,INFO
       INTEGER, PARAMETER :: UNIT=8
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:)
       DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:)
       CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
+      CHARACTER(LEN=256) :: BASENAME,EXTNAME
 C
       INTERFACE
-      SUBROUTINE GETBISP(NX,NY,ZSP,Y2MAX,ZBISP)
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE ADDBISP(NX,NY,ZSP,Y2MAX,ZBISP)
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
-      DOUBLE COMPLEX, INTENT(OUT) :: 
+      DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
-      END SUBROUTINE GETBISP
+      END SUBROUTINE ADDBISP
+      SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
+      CHARACTER(LEN=*), INTENT(IN) :: PATH
+      CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
+      END SUBROUTINE RESOLVEPATH
       END INTERFACE
 C
-C  TODO:
       STATUS=0
+      WRITE(*,*)'input image file: '//TRIM(IMGFILE)
+      CALL RESOLVEPATH(IMGFILE,BASENAME,EXTNAME)
+      OPEN(UNIT=UNIT,FILE=TRIM(BASENAME)//'_sm.log',STATUS='REPLACE',
+     &  ACTION='WRITE',IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'open file failed.'
+        RETURN
+      END IF
+      WRITE(*,*)'log: '//TRIM(BASENAME)//'_sm.log'
+      WRITE(UNIT,*)'input image file: '//TRIM(IMGFILE)
+      WRITE(*,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
+      WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
+      CALL IMAGESIZE(IMGFILE,NAXES)
+      WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      LBUF=NINT(DBLE(BUFSIZ*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
+      WRITE(*,'(A,I4,A)')' buffer length: ',LBUF,' frames'
+      WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUF,' frames'
+      ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUF),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      LBISP=(Y2MAX+1)*(2*NAXES(1)-Y2MAX)*NAXES(1)*(NAXES(1)+2)/8
+      WRITE(*,*)'length of bispectral array: ',LBISP
+      WRITE(UNIT,*)'length of bispectral array: ',LBISP
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF(INFO .EQ. 0)THEN
+        WRITE(*,*)'error: DFFTW_INIT_THREADS failed.'
+        WRITE(UNIT,*)'error: DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
+      ALLOCATE(ZIN(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZOUT(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_DFT_2D(PLAN,NAXES(1),NAXES(2),ZIN,ZOUT,-1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      NFRAMES=0
+      ZBISP=CMPLX(0.0D0)
+      DO NR=1,NRNG
+        NBUFS=CEILING(DBLE(RNG(2,NR)+1-RNG(1,NR))/DBLE(LBUF))
+        DO NB=1,NBUFS
+          L1=RNG(1,NR)+(NB-1)*LBUF
+          L2=MIN(RNG(1,NR)+NB*LBUF-1,RNG(2,NR))
+          CALL READIMAGE(IMGFILE,
+     &     (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
+          DO L=1,L2+1-L1
+            NFRAMES=NFRAMES+1
+            ZIN=CMPLX(DBUF(:,:,L))
+            CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+            CALL ADDBISP(NAXES(1),NAXES(2),ZOUT,Y2MAX,ZBISP)
+          END DO
+        END DO
+      END DO
+      ZBISP=ZBISP/DBLE(NFRAMES)
+      DEALLOCATE(DBUF)
+      DEALLOCATE(ZIN)
+      DEALLOCATE(ZOUT)
+      CALL DFFTW_DESTROY_PLAN(PLAN)
+      WRITE(*,*)'subroutine returns.'
+      WRITE(UNIT,*)'subroutine returns.'
+      CLOSE(UNIT)
       RETURN
       END SUBROUTINE MEANBISP
 C ******************************************************************************
-      SUBROUTINE GETBISP(NX,NY,ZSP,Y2MAX,ZBISP)
-C  Calculate bispectrum with given spetrum.
+      SUBROUTINE ADDBISP(NX,NY,ZSP,Y2MAX,ZBISP)
+C  Calculate bispectrum with given spectrum and add the result to the given
+C  bispectral sum.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
 C  unexpected result.
@@ -34,7 +133,7 @@ C
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
       DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
-      DOUBLE COMPLEX, INTENT(OUT) :: 
+      DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
 C
       K=1
@@ -42,14 +141,15 @@ C
         DO X2=0,NX-1
           DO Y1=0,NY-1-Y2
             DO X1=0,MIN(X2,NX-1-X2)
-              ZBISP(K)=ZSP(X1,Y1)*ZSP(X2,Y2)*DCONJG(ZSP(X1+X2,Y1+Y2))
+              ZBISP(K)=ZBISP(K)+
+     &          ZSP(X1,Y1)*ZSP(X2,Y2)*DCONJG(ZSP(X1+X2,Y1+Y2))
               K=K+1
             END DO
           END DO
         END DO
       END DO
       RETURN
-      END SUBROUTINE GETBISP
+      END SUBROUTINE ADDBISP
 C ******************************************************************************
       SUBROUTINE GETBISPHASE(NX,NY,DPHI,Y2MAX,DBETA)
 C  Calculate bispectral phase with given spetral phase.

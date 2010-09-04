@@ -63,17 +63,6 @@ C
       DOUBLE PRECISION, INTENT(OUT) :: 
      &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
 C
-      INTERFACE
-      FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
-      INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
-      INTEGER :: BISPOS
-      END FUNCTION BISPOS
-      END INTERFACE
-C
-      WRITE(*,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
-      WRITE(UNIT,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
-      WRITE(*,'(A,I3)')' bispectral levels: ',Y2MAX
-      WRITE(UNIT,'(A,I3)')' bispectral levels: ',Y2MAX
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1

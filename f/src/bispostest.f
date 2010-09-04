@@ -39,7 +39,7 @@ C
       END IF
       WRITE(*,'(A,I3,A,I3)')' size: ',NX,' x ',NY
       WRITE(UNIT,'(A,I3,A,I3)')' size: ',NX,' x ',NY
-      WRITE(*,'(A,I3)')' upper limit of y_2: ',Y2MAX
+      WRITE(*,'(A,I3)')' levels: ',Y2MAX
       WRITE(UNIT,'(A,I3)')' levels: ',Y2MAX
       LB=(Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8
       WRITE(*,*)'length of bispectrum array: ',LB

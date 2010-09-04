@@ -1,4 +1,4 @@
-      SUBROUTINE GETBISP(IMGFILE,NRNG,RNG,W,ZBISP)
+      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,W,ZBISP)
 C  Calculate the mean bispectrum of given images.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
@@ -10,15 +10,83 @@ C
       INTEGER, PARAMETER :: UNIT=8
       DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
       CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
+C
+      INTERFACE
+      SUBROUTINE GETBISP(NX,NY,ZSP,Y2MAX,ZBISP)
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(OUT) :: 
+     &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      END SUBROUTINE GETBISP
+      END INTERFACE
+C
+C  TODO:
+      STATUS=0
+      RETURN
+      END SUBROUTINE MEANBISP
+C ******************************************************************************
+      SUBROUTINE GETBISP(NX,NY,ZSP,Y2MAX,ZBISP)
+C  Calculate bispectrum with given spetrum.
+C
+C  Now only image with even NX is permitted. Otherwise BISPOS will return
+C  unexpected result.
+C
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      INTEGER :: X1,Y1,X2,Y2,K
+      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(OUT) :: 
+     &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+C
+      K=1
+      DO Y2=0,Y2MAX
+        DO X2=0,NX-1
+          DO Y1=0,NY-1-Y2
+            DO X1=0,MIN(X2,NX-1-X2)
+              ZBISP(K)=ZSP(X1,Y1)*ZSP(X2,Y2)*DCONJG(ZSP(X1+X2,Y1+Y2))
+              K=K+1
+            END DO
+          END DO
+        END DO
+      END DO
+      RETURN
+      END SUBROUTINE GETBISP
+C ******************************************************************************
+      SUBROUTINE GETBISPHASE(NX,NY,DPHI,Y2MAX,DBETA)
+C  Calculate bispectral phase with given spetral phase.
+C
+C  Now only image with even NX is permitted. Otherwise BISPOS will return
+C  unexpected result.
+C
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      INTEGER :: X1,Y1,X2,Y2,K
+      DOUBLE PRECISION, INTENT(IN) :: DPHI(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(OUT) :: 
+     &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+C
       INTERFACE
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
       INTEGER :: BISPOS
       END FUNCTION BISPOS
       END INTERFACE
-      STATUS=0
+C
+      WRITE(*,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
+      WRITE(UNIT,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
+      WRITE(*,'(A,I3)')' bispectral levels: ',Y2MAX
+      WRITE(UNIT,'(A,I3)')' bispectral levels: ',Y2MAX
+      K=1
+      DO Y2=0,Y2MAX
+        DO X2=0,NX-1
+          DO Y1=0,NY-1-Y2
+            DO X1=0,MIN(X2,NX-1-X2)
+              DBETA(K)=DPHI(X1,Y1)+DPHI(X2,Y2)-DPHI(X1+X2,Y1+Y2)
+              K=K+1
+            END DO
+          END DO
+        END DO
+      END DO
       RETURN
-      END SUBROUTINE GETBISP
+      END SUBROUTINE GETBISPHASE
 C ******************************************************************************
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
 C  Calculate position in bispectrum array according to positions of the

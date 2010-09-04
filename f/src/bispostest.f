@@ -37,13 +37,13 @@ C
         CALL GET_COMMAND_ARGUMENT(3,ARG)
         READ(ARG,*)Y2MAX
       END IF
-      WRITE(*,'(A,I3,A,I3)')' image size: ',NX,' x ',NY
-      WRITE(UNIT,'(A,I3,A,I3)')' image size: ',NX,' x ',NY
-      WRITE(*,'(A,I3)')' bispectrum levels: ',Y2MAX
-      WRITE(UNIT,'(A,I3)')' bispectrum levels: ',Y2MAX
+      WRITE(*,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
+      WRITE(UNIT,'(A,I3,A,I3)')' spectral size: ',NX,' x ',NY
+      WRITE(*,'(A,I3)')' bispectral levels: ',Y2MAX
+      WRITE(UNIT,'(A,I3)')' bispectral levels: ',Y2MAX
       LB=(Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8
-      WRITE(*,*)'length of bispectrum array: ',LB
-      WRITE(UNIT,*)'length of bispectrum array: ',LB
+      WRITE(*,*)'length of bispectral array: ',LB
+      WRITE(UNIT,*)'length of bispectral array: ',LB
       K=1
       DO Y2=0,Y2MAX
         WRITE(*,'(A,I3,A,I3)')' level ',Y2,' of ',Y2MAX

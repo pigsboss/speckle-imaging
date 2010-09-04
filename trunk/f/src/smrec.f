@@ -1,4 +1,4 @@
-      SUBROUTINE BISPECTRUM(FILENAME,FPIXELS,LPIXELS,MW,DBG,ZBISP)
+      SUBROUTINE BISPECTRUM(FILENAME,NRNG,RNG,MW,DBG,ZBISP)
 C  Calculate the mean bispectrum of all
 C  the frames.
 C
@@ -26,7 +26,6 @@ C  =============
       DOUBLE COMPLEX, DIMENSION(0:LPIXELS(1)-FPIXELS(1),
      &  0:LPIXELS(2)-FPIXELS(2)) :: ZIN,ZOUT,ZSP
       CHARACTER*(*), INTENT(IN) :: FILENAME
-C
       INTERFACE
       FUNCTION BISPOS(I1,J1,I2,J2,M,N)
       IMPLICIT NONE
@@ -202,4 +201,5 @@ C  frequency components in the spectrum matrices.
         RETURN
       END IF
       END FUNCTION BISPOS
-C *****************************************************************************
+C ******************************************************************************
+

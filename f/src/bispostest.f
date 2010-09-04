@@ -1,13 +1,16 @@
       PROGRAM BISPOSTEST
       IMPLICIT NONE
-      INTEGER :: STATUS,K,X1,Y1,X2,Y2,NX,NY,Y2MAX,LB,NARGS
+      INTEGER :: STATUS,C,K,X1,Y1,X2,Y2,NX,NY,Y2MAX,LB,NARGS
       INTEGER, PARAMETER :: UNIT=8,DEFAULTNX=16
-      INTEGER, ALLOCATABLE :: BISPX1(:),BISPY1(:),BISPX2(:),BISPY2(:)
-      CHARACTER(LEN=256) :: ARG
+      CHARACTER(LEN=256) :: ARG,STRC,STRK
+C
+      INTERFACE
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
-      INTEGER, INTENT(OUT) :: BISPOS
+      INTEGER :: BISPOS
       END FUNCTION BISPOS
+      END INTERFACE
+C
       STATUS=0
       OPEN(UNIT=UNIT,FILE='bispostest.txt',STATUS='REPLACE',
      &  ACTION='WRITE',IOSTAT=STATUS)
@@ -43,13 +46,30 @@
       WRITE(UNIT,*)'length of bispectrum array: ',LB
       K=1
       DO Y2=0,Y2MAX
+        WRITE(*,'(A,I3,A,I3)')' level ',Y2,' of ',Y2MAX
         DO X2=0,NX-1
           DO Y1=0,NY-1-Y2
             DO X1=0,MIN(X2,NX-1-X2)
-              BISPX1(K)=X1
-              BISPY1(K)=Y1
-              BISPX2(K)=X2
-              BISPY2(K)=Y2
+              C=BISPOS(X1,Y1,X2,Y2,NX,NY)
+              WRITE(STRC,*)C
+              WRITE(STRK,*)K
+              STRC=ADJUSTL(STRC)
+              STRK=ADJUSTL(STRK)
+              IF(C .NE. K)THEN
+                WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
+     &            ' X (',X1,',',Y1,',',X2,',',Y2,'): '//
+     &            TRIM(STRC)//'('//TRIM(STRK)//')'
+                WRITE(UNIT,'(A,I3,A,I3,A,I3,A,I3,A)')
+     &            ' X (',X1,',',Y1,',',X2,',',Y2,'): '//
+     &            TRIM(STRC)//'('//TRIM(STRK)//')'
+C             ELSE
+C               WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
+C    &            ' O (',X1,',',Y1,',',X2,',',Y2,'): '//
+C    &            TRIM(STRC)//'('//TRIM(STRK)//')'
+C               WRITE(UNIT,'(A,I3,A,I3,A,I3,A,I3,A)')
+C    &            ' O (',X1,',',Y1,',',X2,',',Y2,'): '//
+C    &            TRIM(STRC)//'('//TRIM(STRK)//')'
+              END IF
               K=K+1
             END DO
           END DO

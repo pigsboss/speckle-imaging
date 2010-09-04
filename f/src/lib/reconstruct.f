@@ -1,6 +1,9 @@
       SUBROUTINE GETBISP(IMGFILE,NRNG,RNG,W,ZBISP)
 C  Calculate the mean bispectrum of given images.
 C
+C  Now only image with even NX is permitted. Otherwise BISPOS will return
+C  unexpected result.
+C
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),W
       INTEGER :: STATUS
@@ -10,7 +13,7 @@ C
       INTERFACE
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
-      INTEGER, INTENT(OUT) :: BISPOS
+      INTEGER :: BISPOS
       END FUNCTION BISPOS
       END INTERFACE
       STATUS=0
@@ -21,9 +24,12 @@ C ******************************************************************************
 C  Calculate position in bispectrum array according to positions of the
 C  frequency components in the spectrum matrices.
 C
+C  Now only image with even NX is permitted. Otherwise the function will return
+C  unexpected result.
+C
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
-      INTEGER, INTENT(OUT) :: BISPOS
+      INTEGER :: BISPOS
       INTEGER :: K,L
       K=1+NX*(NX+2)*Y2*(2*NY-Y2+1)/8
       IF (X2 .LT. NX/2) THEN

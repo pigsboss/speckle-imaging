@@ -194,6 +194,9 @@ C ******************************************************************************
       SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD,DR)
 C  Recursive algorithm to solve the modular equations.
 C
+C  Now only image with even NX is permitted. Otherwise BISPOS will return
+C  unexpected result.
+C
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X,Y,X1,Y1,X2,Y2,K,L
@@ -240,12 +243,18 @@ C               END IF
           END DO
         END DO
       END DO
-      CALL 
-      DO X=0,NX-1
-        DO Y=0,NY-1
+      CALL DFFTSHIFT(NX,NY,DSPMOD)
+      DO X=1,NX-1
+        DO Y=1,NY-1
           DTMP(X,Y)=DSPMOD(NX-X,NY-Y)
         END DO
       END DO
+      DO X=1,NX-1
+        DO Y=1,NY-1
+          DSPMOD(X,Y)=0.5D0*(DSPMOD(X,Y)+DTMP(X,Y))
+        END DO
+      END DO
+      CALL DIFFTSHIFT(NX,NY,DSPMOD)
       RETURN
       END SUBROUTINE RECURSPMOD
 C ******************************************************************************
@@ -259,8 +268,17 @@ C
       DOUBLE PRECISION, INTENT(OUT) :: DPHI(0:NX-1,0:NY-1)
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      DOUBLE PRECISION :: DTMP(0:NX-1,0:NY-1)
 C
       INTERFACE
+      SUBROUTINE DFFTSHIFT(NX,NY,DX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
+      END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(NX,NY,DX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
+      END SUBROUTINE DIFFTSHIFT
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
       INTEGER :: BISPOS
@@ -287,6 +305,18 @@ C
           END DO
         END DO
       END DO
+      CALL DFFTSHIFT(NX,NY,DPHI)
+      DO X=1,NX-1
+        DO Y=1,NY-1
+          DTMP(X,Y)=DPHI(NX-X,NY-Y)
+        END DO
+      END DO
+      DO X=1,NX-1
+        DO Y=1,NY-1
+          DPHI(X,Y)=0.5D0*(DPHI(X,Y)+DTMP(X,Y))
+        END DO
+      END DO
+      CALL DIFFTSHIFT(NX,NY,DPHI)
       RETURN
       END SUBROUTINE RECURSPHASE
 C ******************************************************************************

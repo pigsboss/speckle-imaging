@@ -1,12 +1,14 @@
       SUBROUTINE SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
      &  Y2MAX,PREFIX)
       IMPLICIT NONE
+      INCLUDE 'fftw3.f'
       INTEGER, PARAMETER :: UNIT=8
       INTEGER, INTENT(IN) :: NTRNG,TRNG(2,NTRNG),NRRNG,RRNG(2,NRRNG),
      &  Y2MAX
-      INTEGER :: STATUS,NAXES(3),L,LBISP
+      INTEGER :: PLAN,STATUS,NAXES(3),L,LBISP
       DOUBLE PRECISION, ALLOCATABLE :: DBISP(:),DRHO(:,:),DPHI(:,:)
-      DOUBLE COMPLEX, ALLOCATABLE :: ZTBISP(:),ZRBISP(:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZTBISP(:),ZRBISP(:),
+     &  ZIN(:,:),ZOUT(:,:)
       CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PREFIX
 C
       INTERFACE
@@ -125,6 +127,18 @@ C
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
+      ALLOCATE(ZIN(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZOUT(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
       ALLOCATE(DPHI(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
@@ -182,11 +196,23 @@ C
      &  (/NAXES(1),NAXES(2),1/),DPHI)
       WRITE(*,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
       WRITE(UNIT,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
+      CALL DFFTW_PLAN_DFT_2D(PLAN,NAXES(1),NAXES(2),ZIN,ZOUT,1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      ZIN=DCMPLX(DCOS(DPHI),DSIN(DPHI))*DRHO
+      CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+      DRHO=DREAL(ZOUT)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DRHO)
+      WRITE(*,*)'speckle masking result: '//TRIM(PREFIX)//'.fits'
+      WRITE(UNIT,*)'speckle masking result: '//TRIM(PREFIX)//'.fits'
+      CALL DFFTW_DESTROY_PLAN(PLAN)
       DEALLOCATE(ZTBISP)
       DEALLOCATE(ZRBISP)
       DEALLOCATE(DBISP)
       DEALLOCATE(DPHI)
       DEALLOCATE(DRHO)
+      DEALLOCATE(ZIN)
+      DEALLOCATE(ZOUT)
       CLOSE(UNIT)
       RETURN
       END SUBROUTINE SPECKLEMASKING

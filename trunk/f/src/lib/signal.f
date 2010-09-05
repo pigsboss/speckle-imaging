@@ -484,6 +484,7 @@ C  =======
 C  z = a_0 + 
 C    a_1*x + a_2*y + 
 C    a_3*x^2 + a_4*x*y + a_5*y^2 + 
+
 C    a_6*x^3 + a_7*x^2*y + a_8*x*y^2 + a_9*y^3 +
 C    a_10*x^4 + a_11*x^3*y + a_12*x^2*y^2 + a_13*x*y^3 + a_14*y^4
 C  x is column number.
@@ -630,10 +631,10 @@ C ******************************************************************************
           END IF
         END DO
       END DO
-      ZIN2D(1:M,1:N)=CMPLX(CLN(1:M,1:N))
+      ZIN2D(1:M,1:N)=DCMPLX(CLN(1:M,1:N))
       CALL DFFTW_EXECUTE_DFT(PLAN2D,ZIN2D,ZOUT2D)
       PS=SUM(ZOUT2D*CONJG(ZOUT2D))/DBLE(NPIXS)/DSQRT(DBLE(NPIXS))
-      ZIN1D(1:NSPLS)=CMPLX(BUFFER(1:NSPLS))
+      ZIN1D(1:NSPLS)=DCMPLX(BUFFER(1:NSPLS))
       CALL DFFTW_EXECUTE_DFT(PLAN1D,ZIN1D,ZOUT1D)
       PN=SUM(ZOUT1D*CONJG(ZOUT1D))/DBLE(NSPLS)/DSQRT(DBLE(NSPLS))
       SNR=PS/PN

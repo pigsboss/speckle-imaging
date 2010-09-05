@@ -1,3 +1,278 @@
+      SUBROUTINE SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
+     &  Y2MAX,PREFIX)
+      IMPLICIT NONE
+      INTEGER, PARAMETER :: UNIT=8
+      INTEGER, INTENT(IN) :: NTRNG,TRNG(2,NTRNG),NRRNG,RRNG(2,NRRNG),
+     &  Y2MAX
+      INTEGER :: STATUS,NAXES(3),L,LBISP
+      DOUBLE PRECISION, ALLOCATABLE :: DBISP(:),DRHO(:,:),DPHI(:,:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZTBISP(:),ZRBISP(:)
+      CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PREFIX
+C
+      INTERFACE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE RECURSPHASE(NX,NY,Y2MAX,DBETA,DPHI)
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      DOUBLE PRECISION, INTENT(OUT) :: DPHI(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(IN) :: 
+     &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      END SUBROUTINE RECURSPHASE
+      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD)
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(IN) :: 
+     &  DBISPMOD((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      END SUBROUTINE RECURSPMOD
+      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,Y2MAX,ZBISP)
+      INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),Y2MAX
+      DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
+      CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
+      END SUBROUTINE MEANBISP
+      END INTERFACE
+C
+      STATUS=0
+      OPEN(UNIT=UNIT,FILE=TRIM(PREFIX)//'.log',STATUS='REPLACE',
+     &  ACTION='WRITE',IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'open file failed.'
+        RETURN
+      END IF
+C
+      WRITE(*,*)'target: '//TRIM(TFILE)
+      WRITE(UNIT,*)'target: '//TRIM(TFILE)
+      DO L=1,NTRNG
+        WRITE(*,'(A,I3,A,I5,A,I5)')' target range ',L,': from ',
+     &    TRNG(1,L),' to ',TRNG(2,L)
+        WRITE(UNIT,'(A,I3,A,I5,A,I5)')' target range ',L,': from ',
+     &    TRNG(1,L),' to ',TRNG(2,L)
+      END DO
+      WRITE(*,*)'reference: '//TRIM(RFILE)
+      WRITE(UNIT,*)'reference: '//TRIM(RFILE)
+      DO L=1,NRRNG
+        WRITE(*,'(A,I3,A,I5,A,I5)')' reference range ',L,': from ',
+     &    RRNG(1,L),' to ',RRNG(2,L)
+        WRITE(UNIT,'(A,I3,A,I5,A,I5)')' reference range ',L,': from ',
+     &    RRNG(1,L),' to ',RRNG(2,L)
+      END DO
+      CALL IMAGESIZE(TFILE,NAXES)
+      WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      WRITE(*,'(A,I3)')' bispectral levels: ',Y2MAX
+      WRITE(UNIT,'(A,I3)')' bispectral levels: ',Y2MAX
+      LBISP=(Y2MAX+1)*(2*NAXES(1)-Y2MAX)*NAXES(1)*(NAXES(1)+2)/8
+      WRITE(*,*)'length of bispectral array: ',LBISP
+      WRITE(UNIT,*)'length of bispectral array: ',LBISP
+      WRITE(*,*)'prefix of output: '//TRIM(PREFIX)
+      WRITE(UNIT,*)'prefix of output: '//TRIM(PREFIX)
+      ALLOCATE(ZTBISP(LBISP),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      WRITE(*,'(A,F7.1,A)')' size of target bispectral array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      WRITE(UNIT,'(A,F7.1,A)')' size of target bispectral array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      ALLOCATE(ZRBISP(LBISP),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      WRITE(*,'(A,F7.1,A)')' size of reference bispectral array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      WRITE(UNIT,'(A,F7.1,A)')' size of reference bispectral array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      WRITE(*,*)'start calculating mean bispectrum of target.'
+      WRITE(UNIT,*)'start calculating mean bispectrum of target.'
+      CALL MEANBISP(TRIM(TFILE),NTRNG,TRNG,Y2MAX,ZTBISP)
+      WRITE(*,*)'finished calculating mean bispectrum of target.'
+      WRITE(UNIT,*)'finished calculating mean bispectrum of target.'
+      WRITE(*,*)'start calculating mean bispectrum of reference.'
+      WRITE(UNIT,*)'start calculating mean bispectrum of reference.'
+      CALL MEANBISP(TRIM(RFILE),NRRNG,RRNG,Y2MAX,ZRBISP)
+      WRITE(*,*)'finished calculating mean bispectrum of reference.'
+      WRITE(UNIT,*)'finished calculating mean bispectrum of reference.'
+      DO L=1,LBISP
+        IF(ZABS(ZRBISP(L)) .EQ. 0.0D0)THEN
+          WRITE(*,*)'warning: bispectrum array has 0 element.'
+          WRITE(UNIT,*)'warning: bispectrum array has 0 element.'
+        END IF
+      END DO
+      ALLOCATE(DBISP(LBISP),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      WRITE(*,'(A,F7.1,A)')' size of operating bispectral array: ',
+     &  DBLE(LBISP*8)/DBLE(1024*1024),'MB'
+      ALLOCATE(DRHO(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      DBISP=ZABS(ZTBISP)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_target_mod.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DRHO)
+      WRITE(*,*)'estimated target modulus: '//TRIM(PREFIX)//
+     &  '_target_mod.fits'
+      WRITE(UNIT,*)'estimated target modulus: '//TRIM(PREFIX)//
+     &  '_target_mod.fits'
+      DBISP=ZABS(ZRBISP)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_mod.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DRHO)
+      WRITE(*,*)'estimated reference modulus: '//TRIM(PREFIX)//
+     &  '_ref_mod.fits'
+      WRITE(UNIT,*)'estimated reference modulus: '//TRIM(PREFIX)//
+     &  '_ref_mod.fits'
+      DBISP=ZABS(ZTBISP)/ZABS(ZRBISP)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_mod.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DRHO)
+      WRITE(*,*)'demodulated modulus: '//TRIM(PREFIX)//'_mod.fits'
+      WRITE(UNIT,*)'demodulated modulus: '//TRIM(PREFIX)//'_mod.fits'
+      ALLOCATE(DPHI(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_target_phase.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'estimated target phase: '//TRIM(PREFIX)//
+     &  '_target_phase.fits'
+      WRITE(UNIT,*)'estimated target phase: '//TRIM(PREFIX)//
+     &  '_target_phase.fits'
+      DBISP=DATAN2(DIMAG(ZRBISP),DREAL(ZRBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_phase.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'estimated reference phase: '//TRIM(PREFIX)//
+     &  '_ref_phase.fits'
+      WRITE(UNIT,*)'estimated reference phase: '//TRIM(PREFIX)//
+     &  '_ref_phase.fits'
+      ZTBISP=ZTBISP/ZRBISP
+      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_phase.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
+      WRITE(UNIT,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
+      DEALLOCATE(ZTBISP)
+      DEALLOCATE(ZRBISP)
+      DEALLOCATE(DBISP)
+      DEALLOCATE(DPHI)
+      DEALLOCATE(DRHO)
+      CLOSE(UNIT)
+      RETURN
+      END SUBROUTINE SPECKLEMASKING
+C ******************************************************************************
+      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD)
+C  Recursive algorithm to solve the modular equations.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      INTEGER :: X,Y,X1,Y1,X2,Y2,K,L
+      DOUBLE PRECISION :: R
+      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(IN) :: 
+     &  DBISPMOD((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+C
+      INTERFACE
+      FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
+      INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
+      INTEGER :: BISPOS
+      END FUNCTION BISPOS
+      END INTERFACE
+C
+      DSPMOD=1.0D0
+      DO K=2,NX+NY-2
+        DO X=MAX(0,K+1-NX),MIN(K,NX-1)
+          Y=K-X
+          R=0.0D0
+          DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))
+            X2=X-X1
+            DO Y2=0,MIN(Y,Y2MAX)
+              Y1=Y-Y2
+              IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
+     &          THEN
+                R=R+1.0D0
+                L=BISPOS(X1,Y1,X2,Y2,NX,NY)
+                IF(DBISPMOD(L) .NE. 0.0D0)THEN
+                  DSPMOD(X,Y)=DSPMOD(X,Y)*(R-1.0D0)/R+
+     &              (DSPMOD(X1,Y1)*DSPMOD(X2,Y2)/
+     &              DBISPMOD(L))/R
+                ELSE
+                  WRITE(*,*)'warning: bispectrum array has 0 element.'
+                  WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
+     &              ' location: (',X1,', ',Y1,', ',X2,', ',Y2,')'
+                END IF
+              END IF
+            END DO
+          END DO
+        END DO
+      END DO
+      RETURN
+      END SUBROUTINE RECURSPMOD
+C ******************************************************************************
+      SUBROUTINE RECURSPHASE(NX,NY,Y2MAX,DBETA,DPHI)
+C  Recursive algorithm to solve the phasic equations.
+C
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,Y2MAX
+      INTEGER :: X,Y,X1,Y1,X2,Y2,K
+      DOUBLE PRECISION :: R
+      DOUBLE PRECISION, INTENT(OUT) :: DPHI(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(IN) :: 
+     &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+C
+      INTERFACE
+      FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
+      INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
+      INTEGER :: BISPOS
+      END FUNCTION BISPOS
+      END INTERFACE
+C
+      DPHI=0.0D0
+      DO K=2,NX+NY-2
+        DO X=MAX(0,K+1-NX),MIN(K,NX-1)
+          Y=K-X
+          R=0.0D0
+          DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))
+            X2=X-X1
+            DO Y2=0,MIN(Y,Y2MAX)
+              Y1=Y-Y2
+              IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
+     &          THEN
+                R=R+1.0D0
+                DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
+     &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
+     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+              END IF
+            END DO
+          END DO
+        END DO
+      END DO
+      RETURN
+      END SUBROUTINE RECURSPHASE
+C ******************************************************************************
       SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,Y2MAX,ZBISP)
 C  Calculate the mean bispectrum of given images.
 C
@@ -47,13 +322,13 @@ C
       STATUS=0
       WRITE(*,*)'input image file: '//TRIM(IMGFILE)
       CALL RESOLVEPATH(IMGFILE,BASENAME,EXTNAME)
-      OPEN(UNIT=UNIT,FILE=TRIM(BASENAME)//'_sm.log',STATUS='REPLACE',
-     &  ACTION='WRITE',IOSTAT=STATUS)
+      OPEN(UNIT=UNIT,FILE=TRIM(BASENAME)//'_meanbisp.log',
+     &  STATUS='REPLACE',ACTION='WRITE',IOSTAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'open file failed.'
         RETURN
       END IF
-      WRITE(*,*)'log: '//TRIM(BASENAME)//'_sm.log'
+      WRITE(*,*)'log: '//TRIM(BASENAME)//'_meanbisp.log'
       WRITE(UNIT,*)'input image file: '//TRIM(IMGFILE)
       WRITE(*,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
       WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
@@ -96,23 +371,35 @@ C
       CALL DFFTW_PLAN_DFT_2D(PLAN,NAXES(1),NAXES(2),ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
       NFRAMES=0
-      ZBISP=CMPLX(0.0D0)
+      ZBISP(1:LBISP)=DCMPLX(0.0D0)
+      WRITE(*,*)'start averaging bispectrums.'
+      WRITE(UNIT,*)'start averaging bispectrums.'
       DO NR=1,NRNG
+        WRITE(*,'(A,I3,A,I3)')' range ',NR,' of ',NRNG
+        WRITE(UNIT,'(A,I3,A,I3)')' range ',NR,' of ',NRNG
         NBUFS=CEILING(DBLE(RNG(2,NR)+1-RNG(1,NR))/DBLE(LBUF))
-        DO NB=1,NBUFS
-          L1=RNG(1,NR)+(NB-1)*LBUF
-          L2=MIN(RNG(1,NR)+NB*LBUF-1,RNG(2,NR))
+        DO NBUF=1,NBUFS
+          L1=RNG(1,NR)+(NBUF-1)*LBUF
+          L2=MIN(RNG(1,NR)+NBUF*LBUF-1,RNG(2,NR))
+          WRITE(*,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',NBUF,' of ',
+     &     NBUFS,', averaging from ',L1,' to ',L2
+          WRITE(UNIT,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',NBUF,' of ',
+     &     NBUFS,', averaging from ',L1,' to ',L2
           CALL READIMAGE(IMGFILE,
      &     (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
           DO L=1,L2+1-L1
+            WRITE(*,'(A,I4,A,I3,A,I3)')' buffer ',NBUF,
+     &        ', frame ',L,' of ',LBUF
             NFRAMES=NFRAMES+1
-            ZIN=CMPLX(DBUF(:,:,L))
+            ZIN=DCMPLX(DBUF(:,:,L))
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
             CALL ADDBISP(NAXES(1),NAXES(2),ZOUT,Y2MAX,ZBISP)
           END DO
         END DO
       END DO
-      ZBISP=ZBISP/DBLE(NFRAMES)
+      WRITE(*,*)'finished averaging bispectrums.'
+      WRITE(UNIT,*)'finished averaging bispectrums.'
+      ZBISP(1:LBISP)=ZBISP(1:LBISP)/DBLE(NFRAMES)
       DEALLOCATE(DBUF)
       DEALLOCATE(ZIN)
       DEALLOCATE(ZOUT)
@@ -353,7 +640,7 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
      &    '_isa_'//TRIM(NUMSTR)//'_core.fits'
         WRITE(UNIT,*)'core '//TRIM(NUMSTR)//': '//TRIM(PREFIX)//
      &    '_isa_'//TRIM(NUMSTR)//'_core.fits'
-        ZIN=CMPLX(DIMG)
+        ZIN=DCMPLX(DIMG)
         CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
         ZEST=DCONJG(ZOUT)
         DIMG=0.0D0
@@ -367,7 +654,7 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
      &       (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
             DO L=1,L2+1-L1
               NFRAMES=NFRAMES+1
-              ZIN=CMPLX(DBUF(:,:,L))
+              ZIN=DCMPLX(DBUF(:,:,L))
               CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
               ZIN=ZOUT*ZEST
               CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
@@ -596,7 +883,7 @@ C  ===========
       CALL DFFTW_PLAN_DFT_2D(PLAN,PX,PY,ZIN,ZOUT,1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       CALL DIFFTSHIFT(NAXES(1),NAXES(2),DPSD)
-      ZIN=CMPLX(DPSD)
+      ZIN=DCMPLX(DPSD)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       DACF=DREAL(ZOUT/DBLE(NAXES(1))/DBLE(NAXES(2)))
       CALL DFFTSHIFT(PX,PY,DACF)
@@ -666,7 +953,7 @@ C     PRINT *,'Finished planning.'
         CALL READIMAGE(FILENAME,(/FPIXELS(1),FPIXELS(2),L1/),
      &    (/LPIXELS(1),LPIXELS(2),L2/),DBUF)
         DO L=1,L2+1-L1
-          ZIN=CMPLX(DBLE(0))
+          ZIN=DCMPLX(DBLE(0))
           ZIN(1:W,1:H)=DBUF(:,:,L)*DBLE(NPIXELS)/SUM(DBUF(:,:,L))
           CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
           DPSD=DPSD+DREAL(ZOUT*CONJG(ZOUT))
@@ -764,14 +1051,14 @@ C  =============
       END INTERFACE
       CALL DFFTW_PLAN_DFT_2D(PLAN,NX,NY,ZIN,ZOUT,-1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
-      ZIN=CMPLX(DG)
+      ZIN=DCMPLX(DG)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       ZG=ZOUT
-      ZIN=CMPLX(DH)
+      ZIN=DCMPLX(DH)
       CALL ZFFTSHIFT(NX,NY,ZIN)
       CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
       ZH=ZOUT
-      ZDECONV=DCONJG(ZH)/(ZH*DCONJG(ZH)+CMPLX(DBLE(1)/DSNR))
+      ZDECONV=DCONJG(ZH)/(ZH*DCONJG(ZH)+DCMPLX(DBLE(1)/DSNR))
       CALL DFFTW_PLAN_DFT_2D(PLAN,NX,NY,ZIN,ZOUT,1,
      &  FFTW_ESTIMATE+FFTW_DESTROY_INPUT)
       ZIN=ZG*ZDECONV

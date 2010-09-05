@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+sm: sm.o libspeckle.o
+	gfortran -o sm sm.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 bispostest: bispostest.o libspeckle.o
 	gfortran -o bispostest bispostest.o libspeckle.o -lcfitsio \
@@ -72,10 +76,6 @@ buildsmtest: buildsmtest.o libspeckle.o smrec.o
 smtest: smtest.o libspeckle.o smrec.o
 	gfortran -o smtest smtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-sm: sm.o libspeckle.o smrec.o
-	gfortran -o sm sm.o libspeckle.o smrec.o -lcfitsio -lfftw3_threads \
-	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 snr.o: snr.f
 	gfortran $(COPTIONS) -c -o snr.o snr.f $(CFLAGS)

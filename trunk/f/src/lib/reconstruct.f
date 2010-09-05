@@ -25,9 +25,10 @@ C
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
       END SUBROUTINE RECURSPHASE
-      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD)
+      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD,DR)
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
-      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1),
+     &  DR(0:NX-1,0:NY-1)
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBISPMOD((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
       END SUBROUTINE RECURSPMOD
@@ -124,16 +125,28 @@ C
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
+      ALLOCATE(DPHI(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
       DBISP=ZABS(ZTBISP)
-      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_target_mod.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DRHO)
       WRITE(*,*)'estimated target modulus: '//TRIM(PREFIX)//
      &  '_target_mod.fits'
       WRITE(UNIT,*)'estimated target modulus: '//TRIM(PREFIX)//
      &  '_target_mod.fits'
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_target_rdc.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'target redundancy: '//TRIM(PREFIX)//
+     &  '_target_rdc.fits'
+      WRITE(UNIT,*)'target redundancy: '//TRIM(PREFIX)//
+     &  '_target_rdc.fits'
       DBISP=ZABS(ZRBISP)
-      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_mod.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DRHO)
       WRITE(*,*)'estimated reference modulus: '//TRIM(PREFIX)//
@@ -141,17 +154,11 @@ C
       WRITE(UNIT,*)'estimated reference modulus: '//TRIM(PREFIX)//
      &  '_ref_mod.fits'
       DBISP=ZABS(ZTBISP)/ZABS(ZRBISP)
-      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO)
+      CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_mod.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DRHO)
       WRITE(*,*)'demodulated modulus: '//TRIM(PREFIX)//'_mod.fits'
       WRITE(UNIT,*)'demodulated modulus: '//TRIM(PREFIX)//'_mod.fits'
-      ALLOCATE(DPHI(NAXES(1),NAXES(2)),STAT=STATUS)
-      IF(STATUS.NE.0)THEN
-        WRITE(*,*)'error: out of memory.'
-        WRITE(UNIT,*)'error: out of memory.'
-        RETURN
-      END IF
       DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
       CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_target_phase.fits',(/1,1,1/),
@@ -184,18 +191,27 @@ C
       RETURN
       END SUBROUTINE SPECKLEMASKING
 C ******************************************************************************
-      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD)
+      SUBROUTINE RECURSPMOD(NX,NY,Y2MAX,DBISPMOD,DSPMOD,DR)
 C  Recursive algorithm to solve the modular equations.
 C
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X,Y,X1,Y1,X2,Y2,K,L
-      DOUBLE PRECISION :: R
-      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1)
+      DOUBLE PRECISION, INTENT(OUT) :: DSPMOD(0:NX-1,0:NY-1),
+     &  DR(0:NX-1,0:NY-1)
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBISPMOD((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      DOUBLE PRECISION :: DTMP(0:NX-1,0:NY-1)
 C
       INTERFACE
+      SUBROUTINE DFFTSHIFT(NX,NY,DX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
+      END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(NX,NY,DX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
+      END SUBROUTINE DIFFTSHIFT
       FUNCTION BISPOS(X1,Y1,X2,Y2,NX,NY)
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
       INTEGER :: BISPOS
@@ -203,30 +219,31 @@ C
       END INTERFACE
 C
       DSPMOD=1.0D0
+      DR=0.0D0
       DO K=2,NX+NY-2
         DO X=MAX(0,K+1-NX),MIN(K,NX-1)
           Y=K-X
-          R=0.0D0
           DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))
             X2=X-X1
             DO Y2=0,MIN(Y,Y2MAX)
               Y1=Y-Y2
               IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
      &          THEN
-                R=R+1.0D0
+C               IF(DABS(DSPMOD(X1,Y1)*DSPMOD(X2,Y2)) .GT. 1.0E-4)THEN
                 L=BISPOS(X1,Y1,X2,Y2,NX,NY)
-                IF(DBISPMOD(L) .NE. 0.0D0)THEN
-                  DSPMOD(X,Y)=DSPMOD(X,Y)*(R-1.0D0)/R+
-     &              (DSPMOD(X1,Y1)*DSPMOD(X2,Y2)/
-     &              DBISPMOD(L))/R
-                ELSE
-                  WRITE(*,*)'warning: bispectrum array has 0 element.'
-                  WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
-     &              ' location: (',X1,', ',Y1,', ',X2,', ',Y2,')'
-                END IF
+                DR(X,Y)=DR(X,Y)+1.0D0
+                DSPMOD(X,Y)=DSPMOD(X,Y)*(DR(X,Y)-1.0D0)/DR(X,Y)+
+     &            (DBISPMOD(L)/(DSPMOD(X1,Y1)*DSPMOD(X2,Y2)))/DR(X,Y)
+C               END IF
               END IF
             END DO
           END DO
+        END DO
+      END DO
+      CALL 
+      DO X=0,NX-1
+        DO Y=0,NY-1
+          DTMP(X,Y)=DSPMOD(NX-X,NY-Y)
         END DO
       END DO
       RETURN
@@ -388,8 +405,8 @@ C
           CALL READIMAGE(IMGFILE,
      &     (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
           DO L=1,L2+1-L1
-            WRITE(*,'(A,I4,A,I3,A,I3)')' buffer ',NBUF,
-     &        ', frame ',L,' of ',LBUF
+c           WRITE(*,'(A,I4,A,I3,A,I3)')' buffer ',NBUF,
+c    &        ', frame ',L,' of ',LBUF
             NFRAMES=NFRAMES+1
             ZIN=DCMPLX(DBUF(:,:,L))
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)

@@ -1,5 +1,5 @@
       SUBROUTINE SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
-     &  Y2MAX,PREFIX)
+     &  Y2MAX,PSDFILE,PREFIX)
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER, PARAMETER :: UNIT=8
@@ -9,19 +9,17 @@
       DOUBLE PRECISION, ALLOCATABLE :: DBISP(:),DRHO(:,:),DPHI(:,:)
       DOUBLE COMPLEX, ALLOCATABLE :: ZTBISP(:),ZRBISP(:),
      &  ZIN(:,:),ZOUT(:,:)
-      CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PREFIX
+      CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PSDFILE,PREFIX
 C
       INTERFACE
-      SUBROUTINE GETPSD(FILENAME,FPIXELS,LPIXELS,DX,DY,DPSD,BUFSIZ)
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3),DX,DY
-      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFSIZ
-      DOUBLE PRECISION, INTENT(OUT) :: DPSD(DX,DY)
-      CHARACTER*(*), INTENT(IN) :: FILENAME
-      END SUBROUTINE GETPSD
       SUBROUTINE DFFTSHIFT(NX,NY,DX)
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
       END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(NX,NY,DX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DX(NX,NY)
+      END SUBROUTINE DIFFTSHIFT
       SUBROUTINE IMAGESIZE(FILENAME,NAXES)
       INTEGER, INTENT(OUT) :: NAXES(3)
       CHARACTER(LEN=*) :: FILENAME
@@ -216,6 +214,25 @@ C
      &  (/NAXES(1),NAXES(2),1/),DRHO)
       WRITE(*,*)'speckle masking result: '//TRIM(PREFIX)//'.fits'
       WRITE(UNIT,*)'speckle masking result: '//TRIM(PREFIX)//'.fits'
+      IF(LEN_TRIM(PSDFILE) .GT. 0)THEN
+        WRITE(*,*)'speckle interferometry demodulated '//
+     &    'power spectral density: '//TRIM(PSDFILE)
+        WRITE(UNIT,*)'speckle interferometry demodulated '//
+     &    'power spectral density: '//TRIM(PSDFILE)
+        CALL READIMAGE(PSDFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DRHO)
+        DRHO=DSQRT(DRHO)
+        CALL DIFFTSHIFT(NAXES(1),NAXES(2),DRHO)
+        ZIN=DCMPLX(DCOS(DPHI),DSIN(DPHI))*DRHO
+        CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
+        DRHO=DREAL(ZOUT)
+        CALL DFFTSHIFT(NAXES(1),NAXES(2),DRHO)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_si.fits',(/1,1,1/),
+     &    (/NAXES(1),NAXES(2),1/),DRHO)
+        WRITE(*,*)'speckle interferometry & '//
+     &    'speckle masking result: '//TRIM(PREFIX)//'_si.fits'
+        WRITE(UNIT,*)'speckle interferometry & '//
+     &    'speckle masking result: '//TRIM(PREFIX)//'_si.fits'
+      END IF
       CALL DFFTW_DESTROY_PLAN(PLAN)
       DEALLOCATE(ZTBISP)
       DEALLOCATE(ZRBISP)
@@ -350,7 +367,7 @@ C
       END DO
       DO X=1,NX-1
         DO Y=1,NY-1
-          DPHI(X,Y)=0.5D0*(DPHI(X,Y)+DTMP(X,Y))
+          DPHI(X,Y)=0.0D0-0.5D0*(DTMP(X,Y)-DPHI(X,Y))
         END DO
       END DO
       CALL DIFFTSHIFT(NX,NY,DPHI)

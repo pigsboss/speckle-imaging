@@ -1,13 +1,15 @@
       PROGRAM SM
 C  sm filename_target filename_ref -level=y_2_max
 C    [-target-range=m_1,n_1] [-target-range=m_2,n_2] [...]
-C    [-ref-range=m_1,n_1] [-ref-range=m_1,n_1] [...] [-prefix=output]
+C    [-ref-range=m_1,n_1] [-ref-range=m_1,n_1] [...]
+C    [-psd=filename] [-prefix=output]
 C
       IMPLICIT NONE
       INTEGER, PARAMETER :: MAXNRNG=100
       INTEGER :: Y2MAX,NAXES(3),NARGS,NTRNG,NRRNG,TRNG(2,MAXNRNG),
      &  RRNG(2,MAXNRNG),K
-      CHARACTER(LEN=256) :: TFILE,RFILE,PREFIX,ARG,BASENAME,EXTNAME
+      CHARACTER(LEN=256) :: TFILE,RFILE,PREFIX,PSDFILE,
+     &  ARG,BASENAME,EXTNAME
 C
       INTERFACE
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
@@ -15,11 +17,11 @@ C
       CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
       END SUBROUTINE RESOLVEPATH
       SUBROUTINE SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
-     &  Y2MAX,PREFIX)
+     &  Y2MAX,PSDFILE,PREFIX)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NTRNG,TRNG(2,NTRNG),NRRNG,RRNG(2,NRRNG),
      &  Y2MAX
-      CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PREFIX
+      CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PSDFILE,PREFIX
       END SUBROUTINE SPECKLEMASKING
       SUBROUTINE IMAGESIZE(FILENAME,NAXES)
       INTEGER, INTENT(OUT) :: NAXES(3)
@@ -49,6 +51,7 @@ C
       NTRNG=0
       NRRNG=0
       Y2MAX=0
+      PSDFILE=''
       DO K=3,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF((INDEX(ARG,'-target-range=') .GT. 0).AND.
@@ -73,6 +76,8 @@ C
           READ(ARG(INDEX(ARG,'-level=')+7:),*)Y2MAX
         ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
           PREFIX=ARG(INDEX(ARG,'-prefix=')+8:)
+        ELSE IF(INDEX(ARG,'-psd=').GT.0)THEN
+          PSDFILE=ARG(INDEX(ARG,'-psd=')+5:)
         ELSE
           PRINT *,'error: unknown argument '//TRIM(ARG)
           STOP
@@ -89,6 +94,6 @@ C
         NRRNG=1
       END IF
       CALL SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
-     &  Y2MAX,PREFIX)
+     &  Y2MAX,PSDFILE,PREFIX)
       STOP
       END PROGRAM SM

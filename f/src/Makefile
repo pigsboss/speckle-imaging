@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm smtest
 
 COPTIONS=-O3
 
@@ -65,16 +65,16 @@ deconvclean: deconvclean.o libspeckle.o
 	gfortran -o deconvclean deconvclean.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
+smtest: smtest.o libspeckle.o
+	gfortran -o smtest smtest.o libspeckle.o -lcfitsio \
+	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
-smtest: smtest.o libspeckle.o smrec.o
-	gfortran -o smtest smtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 snr.o: snr.f
@@ -122,14 +122,14 @@ average.o: average.f
 isa.o: isa.f
 	gfortran $(COPTIONS) -c -o isa.o isa.f $(CFLAGS)
 
+smtest.o: smtest.f
+	gfortran $(COPTIONS) -c -o smtest.o smtest.f $(CFLAGS)
+
 center.o: center.f
 	gfortran $(COPTIONS) -c -o center.o center.f $(CFLAGS)
 
 buildsmtest.o: buildsmtest.f
 	gfortran $(COPTIONS) -c -o buildsmtest.o buildsmtest.f $(CFLAGS)
-
-smtest.o: smtest.f
-	gfortran $(COPTIONS) -c -o smtest.o smtest.f $(CFLAGS)
 
 simobs.o: simobs.f
 	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)

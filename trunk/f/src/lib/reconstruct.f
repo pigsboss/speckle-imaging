@@ -297,6 +297,7 @@ C               END IF
           END DO
         END DO
       END DO
+      RETURN
       CALL DFFTSHIFT(NX,NY,DSPMOD)
       DO X=1,NX-1
         DO Y=1,NY-1
@@ -359,6 +360,7 @@ C
           END DO
         END DO
       END DO
+      RETURN
       CALL DFFTSHIFT(NX,NY,DPHI)
       DO X=1,NX-1
         DO Y=1,NY-1
@@ -545,6 +547,7 @@ C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
 C  unexpected result.
 C
+      IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
       DOUBLE PRECISION, INTENT(IN) :: DPHI(0:NX-1,0:NY-1)

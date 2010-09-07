@@ -1,3 +1,43 @@
+      SUBROUTINE GETARGUMENT(NX,NY,ZX,DPHI)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(OUT) :: DPHI(NX,NY)
+      DOUBLE COMPLEX, INTENT(IN) :: ZX(NX,NY)
+      INTEGER :: X,Y
+      DOUBLE PRECISION, PARAMETER :: PI=3.14159265358979323846D0
+      DOUBLE PRECISION :: DX(NX,NY),DY(NX,NY),DTMP
+      DX=DREAL(ZX)
+      DY=DIMAG(ZX)
+      DO X=1,NX
+        DO Y=1,NY
+          IF(DX(X,Y) .LT. 0.0D0 .AND. DY(X,Y) .LT. 0.0D0)THEN
+            DTMP=DY(X,Y)/DX(X,Y)
+            DPHI(X,Y)=-1.0D0*PI-DATAN(DTMP)
+          ELSE IF(DX(X,Y) .EQ. 0.0D0 .AND. DY(X,Y) .LT. 0.0D0)THEN
+            DPHI(X,Y)=-0.5D0*PI
+          ELSE IF(DX(X,Y) .GT. 0.0D0 .AND. DY(X,Y) .LT. 0.0D0)THEN
+            DTMP=DABS(DY(X,Y))/DX(X,Y)
+            DPHI(X,Y)=0.0D0-DATAN(DTMP)
+          ELSE IF(DX(X,Y) .GE. 0.0D0 .AND. DY(X,Y) .EQ. 0.0D0)THEN
+            DPHI(X,Y)=0.0D0
+          ELSE IF(DX(X,Y) .GT. 0.0D0 .AND. DY(X,Y) .GT. 0.0D0)THEN
+            DTMP=DY(X,Y)/DX(X,Y)
+            DPHI(X,Y)=DATAN(DTMP)
+          ELSE IF(DX(X,Y) .EQ. 0.0D0 .AND. DY(X,Y) .GT. 0.0D0)THEN
+            DPHI(X,Y)=0.5D0*PI
+          ELSE IF(DX(X,Y) .LT. 0.0D0 .AND. DY(X,Y) .GT. 0.0D0)THEN
+            DTMP=DY(X,Y)/DABS(DX(X,Y))
+            DPHI(X,Y)=PI-DATAN(DTMP)
+          ELSE IF(DX(X,Y) .LT. 0.0D0 .AND. DY(X,Y) .EQ. 0.0D0)THEN
+            DPHI(X,Y)=PI
+          ELSE
+            WRITE(*,*)DX(X,Y),DY(X,Y)
+          END IF
+        END DO
+      END DO
+      RETURN
+      END SUBROUTINE GETARGUMENT
+C ******************************************************************************
       SUBROUTINE MULTIPLYDP(NA,DPA,NB,DPB,DPC)
 C  Multiplication of double precision polynomials.
 C

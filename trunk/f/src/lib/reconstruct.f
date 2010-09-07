@@ -352,9 +352,11 @@ C
               IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
      &          THEN
                 R=R+1.0D0
-                DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
-     &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
-     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+C               DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
+C    &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
+C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+                DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
+     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
               END IF
             END DO
           END DO

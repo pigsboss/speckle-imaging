@@ -205,6 +205,9 @@ C
      &  TRIM(PREFIX)//'_o_mod.fits'
 C
       DPHI=DIMG
+      DPHI(1,1)=0.0D0
+      DPHI(1,2)=0.0D0
+      DPHI(2,1)=0.0D0
       CALL GETBISPHASE(NAXES(1),NAXES(2),DPHI,Y2MAX,DBISP)
       CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_o_bis_pha.fits',(/1,1,1/),
@@ -221,21 +224,6 @@ C
      &  TRIM(PREFIX)//'_o_bis_sin.fits'
       WRITE(UNIT,*)'sine of phase estimated from bispectral phase: '//
      &  TRIM(PREFIX)//'_o_bis_sin.fits'
-C
-      DBISP=DATAN2(DIMAG(ZBISP),DREAL(ZBISP))
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_o_pha.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'estimated spectral phase: '//
-     &  TRIM(PREFIX)//'_o_pha.fits'
-      WRITE(UNIT,*)'estimated spectral phase: '//
-     &  TRIM(PREFIX)//'_o_pha.fits'
-C
-      DPHI=DSIN(DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_o_sin.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'sine of estimated spectral phase: '//
-     &  TRIM(PREFIX)//'_o_sin.fits'
 C
       CALL READIMAGE(FILENAME,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
       CALL IMAGETOSPECTRUM(NAXES(1),NAXES(2),DIMG,ZSP)

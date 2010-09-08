@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm smtest
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm
 
 COPTIONS=-O3
 

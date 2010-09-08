@@ -372,6 +372,9 @@ c    &        ', frame ',L,' of ',LBUF
             ZIN=DCMPLX(DBUF(:,:,L))
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
             DBUF(:,:,L)=DATAN2(DIMAG(ZOUT),DREAL(ZOUT))
+            DBUF(1,1,L)=0.0D0
+            DBUF(1,2,L)=0.0D0
+            DBUF(2,1,L)=0.0D0
             CALL ADDBISPHASE(NAXES(1),NAXES(2),DBUF(:,:,L),Y2MAX,DBETA)
           END DO
         END DO

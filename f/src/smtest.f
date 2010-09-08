@@ -193,6 +193,10 @@ C
       CALL ADDBISP(NAXES(1),NAXES(2),ZSP,Y2MAX,ZBISP)
       DBISP=ZABS(ZBISP)
       CALL RECURSPMOD(NAXES(1),NAXES(2),Y2MAX,DBISP,DRHO,DPHI)
+      WRITE(*,'A,I8,A')' bispectrum accessed: ',
+     &  NINT(SUM(DPHI)),'times'
+      WRITE(UNIT,'A,I8,A')' bispectrum accessed: ',
+     &  NINT(SUM(DPHI)),'times'
       CALL WRITEIMAGE(TRIM(PREFIX)//'_o_mod.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DRHO)
       WRITE(*,*)'estimated spectral modulus: '//

@@ -5,9 +5,8 @@
       INTEGER, INTENT(IN) :: NTRNG,TRNG(2,NTRNG),NRRNG,RRNG(2,NRRNG),
      &  Y2MAX
       INTEGER :: STATUS,NAXES(3),L,LBISP
-      DOUBLE PRECISION, ALLOCATABLE :: DRBETA(:),DTBETA(:),
-     &  DRHO(:,:),DPHI(:,:)
-      DOUBLE COMPLEX, ALLOCATABLE :: ZSP(:,:)
+      DOUBLE PRECISION, ALLOCATABLE :: DBISP(:),DRHO(:,:),DPHI(:,:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZSP(:,:),ZTBISP(:),ZRBISP(:)
       CHARACTER(LEN=*), INTENT(IN) :: TFILE,RFILE,PSDFILE,PREFIX
 C
       INTERFACE
@@ -34,11 +33,11 @@ C
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
       END SUBROUTINE RECURSPHASE
-      SUBROUTINE MEANBISPHASE(IMGFILE,NRNG,RNG,Y2MAX,DBETA)
+      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,Y2MAX,ZBISP)
       INTEGER, INTENT(IN) :: NRNG,RNG(2,NRNG),Y2MAX
-      DOUBLE PRECISION, INTENT(OUT) :: DBETA(*)
+      DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
       CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
-      END SUBROUTINE MEANBISPHASE
+      END SUBROUTINE MEANBISP
       END INTERFACE
 C
       STATUS=0
@@ -98,63 +97,78 @@ C
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
-      ALLOCATE(DTBETA(LBISP),STAT=STATUS)
+      ALLOCATE(ZTBISP(LBISP),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
-      WRITE(*,'(A,F7.1,A)')' size of target bispectral phase array: ',
-     &  DBLE(LBISP*8)/DBLE(1024*1024),'MB'
-      WRITE(UNIT,'(A,F7.1,A)')
-     &  ' size of target bispectral phase array: ',
+      WRITE(*,'(A,F7.1,A)')' size of target bispectrum array: ',
      &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
-      ALLOCATE(DRBETA(LBISP),STAT=STATUS)
+      WRITE(UNIT,'(A,F7.1,A)')
+     &  ' size of target bispectrum array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      ALLOCATE(ZRBISP(LBISP),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
       WRITE(*,'(A,F7.1,A)')
-     &  ' size of reference bispectral phase array: ',
+     &  ' size of reference bispectrum array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      WRITE(UNIT,'(A,F7.1,A)')
+     &  ' size of reference bispectrum array: ',
+     &  DBLE(LBISP*16)/DBLE(1024*1024),'MB'
+      ALLOCATE(DBISP(LBISP),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      WRITE(*,'(A,F7.1,A)')
+     &  ' size of operating array: ',
      &  DBLE(LBISP*8)/DBLE(1024*1024),'MB'
       WRITE(UNIT,'(A,F7.1,A)')
-     &  ' size of reference bispectral phase array: ',
+     &  ' size of operating array: ',
      &  DBLE(LBISP*8)/DBLE(1024*1024),'MB'
 C
 C
-      WRITE(*,*)'start calculating mean bispectral phase of target.'
-      WRITE(UNIT,*)'start calculating mean bispectral phase of target.'
-      CALL MEANBISPHASE(TRIM(TFILE),NTRNG,TRNG,Y2MAX,DTBETA)
-      WRITE(*,*)'finished calculating mean bispectral phase of target.'
+      WRITE(*,*)'start calculating mean bispectrum of target.'
+      WRITE(UNIT,*)'start calculating mean bispectrum of target.'
+      CALL MEANBISP(TRIM(TFILE),NTRNG,TRNG,Y2MAX,ZTBISP)
+      WRITE(*,*)'finished calculating mean bispectrum of target.'
       WRITE(UNIT,*)
-     &  'finished calculating mean bispectral phase of target.'
-      WRITE(*,*)'start calculating mean bispectral phase of reference.'
+     &  'finished calculating mean bispectrum of target.'
+      WRITE(*,*)'start calculating mean bispectrum of reference.'
       WRITE(UNIT,*)
-     &  'start calculating mean bispectral phase of reference.'
-      CALL MEANBISPHASE(TRIM(RFILE),NRRNG,RRNG,Y2MAX,DRBETA)
+     &  'start calculating mean bispectrum of reference.'
+      CALL MEANBISP(TRIM(RFILE),NRRNG,RRNG,Y2MAX,ZRBISP)
       WRITE(*,*)
-     &  'finished calculating mean bispectral phase of reference.'
+     &  'finished calculating mean bispectrum of reference.'
       WRITE(UNIT,*)
-     &  'finished calculating mean bispectral phase of reference.'
+     &  'finished calculating mean bispectrum of reference.'
 C
 C
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DTBETA,DPHI)
+      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_target_phase.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
       WRITE(*,*)'estimated target phase: '//TRIM(PREFIX)//
      &  '_target_phase.fits'
       WRITE(UNIT,*)'estimated target phase: '//TRIM(PREFIX)//
      &  '_target_phase.fits'
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DRBETA,DPHI)
+      DBISP=DATAN2(DIMAG(ZRBISP),DREAL(ZRBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_phase.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
       WRITE(*,*)'estimated reference phase: '//TRIM(PREFIX)//
      &  '_ref_phase.fits'
       WRITE(UNIT,*)'estimated reference phase: '//TRIM(PREFIX)//
      &  '_ref_phase.fits'
-      DTBETA=DTBETA-DRBETA
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DTBETA,DPHI)
+      ZTBISP=ZTBISP/ZRBISP
+      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_phase.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
       WRITE(*,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
@@ -177,8 +191,9 @@ C
      &    'speckle masking result: '//TRIM(PREFIX)//'_si.fits'
       ELSE
       END IF
-      DEALLOCATE(DTBETA)
-      DEALLOCATE(DRBETA)
+      DEALLOCATE(ZTBISP)
+      DEALLOCATE(ZRBISP)
+      DEALLOCATE(DBISP)
       DEALLOCATE(DPHI)
       DEALLOCATE(DRHO)
       DEALLOCATE(ZSP)
@@ -251,8 +266,8 @@ c    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
       RETURN
       END SUBROUTINE RECURSPHASE
 C ******************************************************************************
-      SUBROUTINE MEANBISPHASE(IMGFILE,NRNG,RNG,Y2MAX,)
-C  Calculate the mean bispectral phase of given images.
+      SUBROUTINE MEANBISP(IMGFILE,NRNG,RNG,Y2MAX,ZBISP)
+C  Calculate the mean bispectrum of given images.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
 C  unexpected result.
@@ -265,7 +280,7 @@ C
      &  NFRAMES,INFO
       INTEGER, PARAMETER :: UNIT=8
       DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:)
-      DOUBLE PRECISION, INTENT(OUT) :: DBETA(*)
+      DOUBLE COMPLEX, INTENT(OUT) :: ZBISP(*)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:)
       CHARACTER(LEN=*), INTENT(IN) :: IMGFILE
       CHARACTER(LEN=256) :: BASENAME,EXTNAME
@@ -289,12 +304,12 @@ C
       INTEGER, INTENT(OUT) :: NAXES(3)
       CHARACTER(LEN=*) :: FILENAME
       END SUBROUTINE IMAGESIZE
-      SUBROUTINE ADDBISPHASE(NX,NY,DPHI,Y2MAX,DBETA)
+      SUBROUTINE ADDBISP(NX,NY,ZSP,Y2MAX,ZBISP)
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
-      DOUBLE PRECISION, INTENT(IN) :: DPHI(0:NX-1,0:NY-1)
-      DOUBLE PRECISION, INTENT(INOUT) :: 
-     &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
-      END SUBROUTINE ADDBISPHASE
+      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(INOUT) :: 
+     &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      END SUBROUTINE ADDBISP
       SUBROUTINE RESOLVEPATH(PATH,BASENAME,EXTNAME)
       CHARACTER(LEN=*), INTENT(IN) :: PATH
       CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
@@ -304,13 +319,13 @@ C
       STATUS=0
       WRITE(*,*)'input image file: '//TRIM(IMGFILE)
       CALL RESOLVEPATH(IMGFILE,BASENAME,EXTNAME)
-      OPEN(UNIT=UNIT,FILE=TRIM(BASENAME)//'_meanbisphase.log',
+      OPEN(UNIT=UNIT,FILE=TRIM(BASENAME)//'_meanbisp.log',
      &  STATUS='REPLACE',ACTION='WRITE',IOSTAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'open file failed.'
         RETURN
       END IF
-      WRITE(*,*)'log: '//TRIM(BASENAME)//'_meanbisphase.log'
+      WRITE(*,*)'log: '//TRIM(BASENAME)//'_meanbisp.log'
       WRITE(UNIT,*)'input image file: '//TRIM(IMGFILE)
       WRITE(*,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
       WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
@@ -322,22 +337,16 @@ C
       LBUF=NINT(DBLE(BUFSIZ*1024*1024)/DBLE(NAXES(1)*NAXES(2)*8))
       WRITE(*,'(A,I4,A)')' buffer length: ',LBUF,' frames'
       WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUF,' frames'
+      LBISP=(Y2MAX+1)*(2*NAXES(1)-Y2MAX)*NAXES(1)*(NAXES(1)+2)/8
+      WRITE(*,*)'length of bispectral array: ',LBISP
+      WRITE(UNIT,*)'length of bispectral array: ',LBISP
+C
       ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUF),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
-      LBISP=(Y2MAX+1)*(2*NAXES(1)-Y2MAX)*NAXES(1)*(NAXES(1)+2)/8
-      WRITE(*,*)'length of bispectral array: ',LBISP
-      WRITE(UNIT,*)'length of bispectral array: ',LBISP
-      CALL DFFTW_INIT_THREADS(INFO)
-      IF(INFO .EQ. 0)THEN
-        WRITE(*,*)'error: DFFTW_INIT_THREADS failed.'
-        WRITE(UNIT,*)'error: DFFTW_INIT_THREADS failed.'
-        RETURN
-      END IF
-      CALL DFFTW_PLAN_WITH_NTHREADS(2)
       ALLOCATE(ZIN(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
@@ -350,10 +359,18 @@ C
         WRITE(UNIT,*)'error: out of memory.'
         RETURN
       END IF
+C
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF(INFO .EQ. 0)THEN
+        WRITE(*,*)'error: DFFTW_INIT_THREADS failed.'
+        WRITE(UNIT,*)'error: DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
       CALL DFFTW_PLAN_DFT_2D(PLAN,NAXES(1),NAXES(2),ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
       NFRAMES=0
-      DBETA(1:LBISP)=DCMPLX(0.0D0)
+      ZBISP(1:LBISP)=DCMPLX(0.0D0)
       WRITE(*,*)'start averaging bispectrums.'
       WRITE(UNIT,*)'start averaging bispectrums.'
       DO NR=1,NRNG
@@ -376,17 +393,16 @@ c    &        ', frame ',L,' of ',LBUF
             ZIN=DCMPLX(DBUF(:,:,L))
             CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
-            DBUF(:,:,L)=DATAN2(DIMAG(ZOUT),DREAL(ZOUT))
-            DBUF(1,1,L)=0.0D0
-            DBUF(1,2,L)=0.0D0
-            DBUF(2,1,L)=0.0D0
-            CALL ADDBISPHASE(NAXES(1),NAXES(2),DBUF(:,:,L),Y2MAX,DBETA)
+            ZOUT(1,1)=ZABS(ZOUT(1,1))
+            ZOUT(1,2)=ZABS(ZOUT(1,2))
+            ZOUT(2,1)=ZABS(ZOUT(2,1))
+            CALL ADDBISP(NAXES(1),NAXES(2),ZOUT,Y2MAX,ZBISP)
           END DO
         END DO
       END DO
       WRITE(*,*)'finished averaging bispectrums.'
       WRITE(UNIT,*)'finished averaging bispectrums.'
-      DBETA(1:LBISP)=DBETA(1:LBISP)/DBLE(NFRAMES)
+      ZBISP(1:LBISP)=ZBISP(1:LBISP)/DBLE(NFRAMES)
       DEALLOCATE(DBUF)
       DEALLOCATE(ZIN)
       DEALLOCATE(ZOUT)
@@ -395,35 +411,35 @@ c    &        ', frame ',L,' of ',LBUF
       WRITE(UNIT,*)'subroutine returns.'
       CLOSE(UNIT)
       RETURN
-      END SUBROUTINE MEANBISPHASE
+      END SUBROUTINE MEANBISP
 C ******************************************************************************
-      SUBROUTINE ADDBISPHASE(NX,NY,DPHI,Y2MAX,DBETA)
-C  Calculate bispectral phase with given spectral phase and add the result to 
-C  the given phasic sum.
+      SUBROUTINE ADDBISP(NX,NY,ZSP,Y2MAX,ZBISP)
+C  Calculate bispectrum with given spectrum and add the result to the given
+C  spectrum sum.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
 C  unexpected result.
 C
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
-      DOUBLE PRECISION, INTENT(IN) :: DPHI(0:NX-1,0:NY-1)
-      DOUBLE PRECISION, INTENT(INOUT) :: 
-     &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
+      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(INOUT) :: 
+     &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
 C
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1
           DO Y1=0,NY-1-Y2
             DO X1=0,MIN(X2,NX-1-X2)
-              DBETA(K)=DBETA(K)+
-     &          DPHI(X1,Y1)+DPHI(X2,Y2)-DPHI(X1+X2,Y1+Y2)
+              ZBISP(K)=ZBISP(K)+
+     &          ZSP(X1,Y1)*ZSP(X2,Y2)*DCONJG(ZSP(X1+X2,Y1+Y2))
               K=K+1
             END DO
           END DO
         END DO
       END DO
       RETURN
-      END SUBROUTINE ADDBISPHASE
+      END SUBROUTINE ADDBISP
 C ******************************************************************************
       SUBROUTINE GETBISPHASE(NX,NY,DPHI,Y2MAX,DBETA)
 C  Calculate bispectral phase with given spetral phase.

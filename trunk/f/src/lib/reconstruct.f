@@ -342,7 +342,7 @@ C
 C
       DPHI=0.0D0
       DO K=2,NX+NY-2
-        DO X=MAX(0,K+1-NX),MIN(K,NX-1)
+        DO X=MAX(0,K+1-NY),MIN(K,NX-1)
           Y=K-X
           R=0.0D0
           DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))

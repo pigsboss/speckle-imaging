@@ -278,7 +278,7 @@ C
       DSPMOD=1.0D0
       DR=0.0D0
       DO K=2,NX+NY-2
-        DO X=MAX(0,K+1-NX),MIN(K,NX-1)
+        DO X=MAX(0,K+1-NY),MIN(K,NX-1)
           Y=K-X
           DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))
             X2=X-X1
@@ -352,11 +352,11 @@ C
               IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
      &          THEN
                 R=R+1.0D0
-C               DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
-C    &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
-C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
-                DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
-     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
+                DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
+     &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
+     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+c               DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
+c    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
               END IF
             END DO
           END DO
@@ -581,6 +581,7 @@ C
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
       INTEGER :: BISPOS
       INTEGER :: K,L
+C
       K=1+NX*(NX+2)*Y2*(2*NY-Y2+1)/8
       IF (X2 .LT. NX/2) THEN
         BISPOS=K+X2*(X2+1)*(NY-Y2)/2+Y1*(X2+1)+X1

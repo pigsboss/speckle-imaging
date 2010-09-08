@@ -251,7 +251,7 @@ c    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
       RETURN
       END SUBROUTINE RECURSPHASE
 C ******************************************************************************
-      SUBROUTINE MEANBISPHASE(IMGFILE,NRNG,RNG,Y2MAX,DBETA)
+      SUBROUTINE MEANBISPHASE(IMGFILE,NRNG,RNG,Y2MAX,)
 C  Calculate the mean bispectral phase of given images.
 C
 C  Now only image with even NX is permitted. Otherwise BISPOS will return
@@ -271,6 +271,10 @@ C
       CHARACTER(LEN=256) :: BASENAME,EXTNAME
 C
       INTERFACE
+      SUBROUTINE ZIFFTSHIFT(NX,NY,ZX)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZX(NX,NY)
+      END SUBROUTINE ZIFFTSHIFT
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
       INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
       DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
@@ -370,6 +374,7 @@ c           WRITE(*,'(A,I4,A,I3,A,I3)')' buffer ',NBUF,
 c    &        ', frame ',L,' of ',LBUF
             NFRAMES=NFRAMES+1
             ZIN=DCMPLX(DBUF(:,:,L))
+            CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
             DBUF(:,:,L)=DATAN2(DIMAG(ZOUT),DREAL(ZOUT))
             DBUF(1,1,L)=0.0D0

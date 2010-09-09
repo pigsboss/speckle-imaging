@@ -150,7 +150,8 @@ C
      &  'finished calculating mean bispectrum of reference.'
 C
 C
-      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+C     DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
+      CALL GETARGUMENT(LBISP,1,ZTBISP,DBISP)
       CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_target_phase.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
@@ -243,8 +244,8 @@ C
                 DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
      &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
      &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
-c               DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
-c    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
+C               DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
+C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
               END IF
             END DO
           END DO
@@ -306,7 +307,7 @@ C
       END SUBROUTINE IMAGESIZE
       SUBROUTINE ADDBISP(NX,NY,ZSP,Y2MAX,ZBISP)
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
-      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(0:NX-1,0:NY-1)
       DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
       END SUBROUTINE ADDBISP
@@ -393,9 +394,6 @@ c    &        ', frame ',L,' of ',LBUF
             ZIN=DCMPLX(DBUF(:,:,L))
             CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
             CALL DFFTW_EXECUTE_DFT(PLAN,ZIN,ZOUT)
-            ZOUT(1,1)=ZABS(ZOUT(1,1))
-            ZOUT(1,2)=ZABS(ZOUT(1,2))
-            ZOUT(2,1)=ZABS(ZOUT(2,1))
             CALL ADDBISP(NAXES(1),NAXES(2),ZOUT,Y2MAX,ZBISP)
           END DO
         END DO
@@ -422,10 +420,13 @@ C  unexpected result.
 C
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
-      DOUBLE COMPLEX, INTENT(IN) :: ZSP(0:NX-1,0:NY-1)
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(0:NX-1,0:NY-1)
       DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
 C
+      ZSP(0,0)=ZABS(ZSP(0,0))
+      ZSP(0,1)=ZABS(ZSP(0,1))
+      ZSP(1,0)=ZABS(ZSP(1,0))
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1

@@ -257,12 +257,12 @@ C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
           END DO
         END DO
       END DO
-      DFLAG=1.0D0
-      CALL BGFIT2PN(NX,NY,DFLAG,DPHI,1,DBG,DB)
-      DPHI=DPHI-DBG
-      DPHI(0,0)=0.0D0
-      DPHI(1,0)=0.0D0
-      DPHI(0,1)=0.0D0
+C     DFLAG=1.0D0
+C     CALL BGFIT2PN(NX,NY,DFLAG,DPHI,1,DBG,DB)
+C     DPHI=DPHI-DBG
+C     DPHI(0,0)=0.0D0
+C     DPHI(1,0)=0.0D0
+C     DPHI(0,1)=0.0D0
 C     CALL DFFTSHIFT(NX,NY,DPHI)
 C     DO X=1,NX-1
 C       DO Y=1,NY-1
@@ -431,6 +431,8 @@ C  unexpected result.
 C
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
+      DOUBLE PRECISION :: DRHO(0:NX-1,0:NY-1),DPHI(0:NX-1,0:NY-1),
+     &  DKX,DKY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(0:NX-1,0:NY-1)
       DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
@@ -438,6 +440,16 @@ C
 C     ZSP(0,0)=ZABS(ZSP(0,0))
 C     ZSP(0,1)=ZABS(ZSP(0,1))
 C     ZSP(1,0)=ZABS(ZSP(1,0))
+      DRHO=ZABS(ZSP)
+      DPHI=DATAN2(DIMAG(ZSP),DREAL(ZSP))
+      DKX=DPHI(1,0)
+      DKY=DPHI(0,1)
+      DO X1=0,NX-1
+        DO Y1=0,NX-1
+          DPHI(X1,Y1)=DPHI-DKX*DBLE(X1)-DKY*DBLE(Y1)
+        END DO
+      END DO
+      ZSP=DRHO*DCMPLX(DCOS(DPHI)+DSIN(DPHI))
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1

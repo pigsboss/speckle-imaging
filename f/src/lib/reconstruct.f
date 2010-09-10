@@ -180,15 +180,21 @@ C
      &    'power spectral density: '//TRIM(PSDFILE)
         CALL READIMAGE(PSDFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DRHO)
         DRHO=DSQRT(DRHO)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_mod.fits',(/1,1,1/),
+     &    (/NAXES(1),NAXES(2),1/),DRHO)
+        WRITE(*,*)'speckle interferometry demodulated modulus: '//
+     &    TRIM(PREFIX)//'_mod.fits'
+        WRITE(UNIT,*)'speckle interferometry demodulated modulus: '//
+     &    TRIM(PREFIX)//'_mod.fits'
         CALL DIFFTSHIFT(NAXES(1),NAXES(2),DRHO)
         ZSP=DCMPLX(DCOS(DPHI),DSIN(DPHI))*DRHO
         CALL SPECTRUMTOIMAGE(NAXES(1),NAXES(2),ZSP,DRHO)
-        CALL WRITEIMAGE(TRIM(PREFIX)//'_si.fits',(/1,1,1/),
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_img.fits',(/1,1,1/),
      &    (/NAXES(1),NAXES(2),1/),DRHO)
-        WRITE(*,*)'speckle interferometry & '//
-     &    'speckle masking result: '//TRIM(PREFIX)//'_si.fits'
-        WRITE(UNIT,*)'speckle interferometry & '//
-     &    'speckle masking result: '//TRIM(PREFIX)//'_si.fits'
+        WRITE(*,*)'speckle masking reconstructed image: '//
+     &    TRIM(PREFIX)//'_img.fits'
+        WRITE(UNIT,*)'speckle masking reconstructed image: '//
+     &    TRIM(PREFIX)//'_img.fits'
       ELSE
       END IF
       DEALLOCATE(ZTBISP)

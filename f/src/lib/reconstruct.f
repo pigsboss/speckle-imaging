@@ -150,30 +150,29 @@ C
      &  'finished calculating mean bispectrum of reference.'
 C
 C
-C     DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
-      CALL GETARGUMENT(LBISP,1,ZTBISP,DBISP)
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_target_phase.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'estimated target phase: '//TRIM(PREFIX)//
-     &  '_target_phase.fits'
-      WRITE(UNIT,*)'estimated target phase: '//TRIM(PREFIX)//
-     &  '_target_phase.fits'
-      DBISP=DATAN2(DIMAG(ZRBISP),DREAL(ZRBISP))
-      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_phase.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'estimated reference phase: '//TRIM(PREFIX)//
-     &  '_ref_phase.fits'
-      WRITE(UNIT,*)'estimated reference phase: '//TRIM(PREFIX)//
-     &  '_ref_phase.fits'
-      ZTBISP=ZTBISP/ZRBISP
       DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))
       CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_phase.fits',(/1,1,1/),
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_tar_pha.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
-      WRITE(UNIT,*)'demodulated phase: '//TRIM(PREFIX)//'_phase.fits'
+      WRITE(*,*)'estimated target phase: '//TRIM(PREFIX)//
+     &  '_tar_pha.fits'
+      WRITE(UNIT,*)'estimated target phase: '//TRIM(PREFIX)//
+     &  '_tar_pha.fits'
+      DBISP=DATAN2(DIMAG(ZRBISP),DREAL(ZRBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_ref_pha.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'estimated reference phase: '//TRIM(PREFIX)//
+     &  '_ref_pha.fits'
+      WRITE(UNIT,*)'estimated reference phase: '//TRIM(PREFIX)//
+     &  '_ref_pha.fits'
+      DBISP=DATAN2(DIMAG(ZTBISP),DREAL(ZTBISP))-
+     &  DATAN2(DIMAG(ZRBISP),DREAL(ZRBISP))
+      CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_pha.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DPHI)
+      WRITE(*,*)'demodulated phase: '//TRIM(PREFIX)//'_pha.fits'
+      WRITE(UNIT,*)'demodulated phase: '//TRIM(PREFIX)//'_pha.fits'
       IF(LEN_TRIM(PSDFILE) .GT. 0)THEN
         WRITE(*,*)'speckle interferometry demodulated '//
      &    'power spectral density: '//TRIM(PSDFILE)

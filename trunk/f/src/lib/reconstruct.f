@@ -211,7 +211,8 @@ C
       DOUBLE PRECISION, INTENT(OUT) :: DPHI(0:NX-1,0:NY-1)
       DOUBLE PRECISION, INTENT(IN) :: 
      &  DBETA((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
-      DOUBLE PRECISION :: DTMP(0:NX-1,0:NY-1)
+      DOUBLE PRECISION :: DTMP(0:NX-1,0:NY-1),
+     &  DFLAG(0:NX-1,0:NY-1),DBG(0:NX-1,0:NY-1),DB(0:NX-1,0:NY-1)
 C
       INTERFACE
       SUBROUTINE DFFTSHIFT(NX,NY,DX)
@@ -226,6 +227,12 @@ C
       INTEGER, INTENT(IN) :: X1,Y1,X2,Y2,NX,NY
       INTEGER :: BISPOS
       END FUNCTION BISPOS
+      SUBROUTINE BGFIT2PN(NX,NY,DFLAG,DIMG,N,DBG,DB)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NX,NY,N
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(NX,NY),DFLAG(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DBG(NX,NY),DB(*)
+      END SUBROUTINE
       END INTERFACE
 C
       DPHI=0.0D0
@@ -250,19 +257,24 @@ C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
           END DO
         END DO
       END DO
-      RETURN
-      CALL DFFTSHIFT(NX,NY,DPHI)
-      DO X=1,NX-1
-        DO Y=1,NY-1
-          DTMP(X,Y)=DPHI(NX-X,NY-Y)
-        END DO
-      END DO
-      DO X=1,NX-1
-        DO Y=1,NY-1
-          DPHI(X,Y)=0.0D0-0.5D0*(DTMP(X,Y)-DPHI(X,Y))
-        END DO
-      END DO
-      CALL DIFFTSHIFT(NX,NY,DPHI)
+      DFLAG=1.0D0
+      CALL BGFIT2PN(NX,NY,DFLAG,DPHI,1,DBG,DB)
+      DPHI=DPHI-DBG
+      DPHI(0,0)=0.0D0
+      DPHI(1,0)=0.0D0
+      DPHI(0,1)=0.0D0
+C     CALL DFFTSHIFT(NX,NY,DPHI)
+C     DO X=1,NX-1
+C       DO Y=1,NY-1
+C         DTMP(X,Y)=DPHI(NX-X,NY-Y)
+C       END DO
+C     END DO
+C     DO X=1,NX-1
+C       DO Y=1,NY-1
+C         DPHI(X,Y)=0.0D0-0.5D0*(DTMP(X,Y)-DPHI(X,Y))
+C       END DO
+C     END DO
+C     CALL DIFFTSHIFT(NX,NY,DPHI)
       RETURN
       END SUBROUTINE RECURSPHASE
 C ******************************************************************************
@@ -423,9 +435,9 @@ C
       DOUBLE COMPLEX, INTENT(INOUT) :: 
      &  ZBISP((Y2MAX+1)*(2*NY-Y2MAX)*NX*(NX+2)/8)
 C
-      ZSP(0,0)=ZABS(ZSP(0,0))
-      ZSP(0,1)=ZABS(ZSP(0,1))
-      ZSP(1,0)=ZABS(ZSP(1,0))
+C     ZSP(0,0)=ZABS(ZSP(0,0))
+C     ZSP(0,1)=ZABS(ZSP(0,1))
+C     ZSP(1,0)=ZABS(ZSP(1,0))
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1

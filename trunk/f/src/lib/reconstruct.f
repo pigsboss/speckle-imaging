@@ -236,6 +236,33 @@ C
       END INTERFACE
 C
       DPHI=0.0D0
+      DO X=0,NX-1
+        DO Y=0,NY-1
+          R=0.0D0
+          IF((X .NE. 0) .OR. (Y .NE. 0))THEN
+            DO X1=0,INT(FLOOR(DBLE(X)/2.0D0))
+              X2=X-X1
+              DO Y2=0,MIN(Y,Y2MAX)
+                Y1=Y-Y2
+                IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.
+     &           ((X2.NE.X).OR.(Y2.NE.Y)))THEN
+                  R=R+1.0D0
+                    DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
+     &              (DPHI(X1,Y1)+DPHI(X2,Y2)-
+     &              DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+                END IF
+              END DO
+            END DO
+          END IF
+        END DO
+      END DO
+      DFLAG=1.0D0
+      CALL BGFIT2PN(NX,NY,DFLAG,DPHI,1,DBG,DB)
+      DPHI=DPHI-DBG
+      DPHI(0,0)=0.0D0
+      DPHI(1,0)=0.0D0
+      DPHI(0,1)=0.0D0
+      RETURN
       DO K=2,NX+NY-2
         DO X=MAX(0,K+1-NY),MIN(K,NX-1)
           Y=K-X
@@ -247,22 +274,20 @@ C
               IF (((X1.NE.X).OR.(Y1.NE.Y)).AND.((X2.NE.X).OR.(Y2.NE.Y)))
      &          THEN
                 R=R+1.0D0
-                DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
-     &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
-     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
-C               DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
-C    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
+c               DPHI(X,Y)=DPHI(X,Y)*(R-1.0D0)/R+
+c    &            (DPHI(X1,Y1)+DPHI(X2,Y2)-
+c    &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY)))/R
+                DPHI(X,Y)=DPHI(X1,Y1)+DPHI(X2,Y2)-
+     &            DBETA(BISPOS(X1,Y1,X2,Y2,NX,NY))
+                EXIT
               END IF
             END DO
+            IF(R .GT. 0.0D0)THEN
+              EXIT
+            END IF
           END DO
         END DO
       END DO
-C     DFLAG=1.0D0
-C     CALL BGFIT2PN(NX,NY,DFLAG,DPHI,1,DBG,DB)
-C     DPHI=DPHI-DBG
-C     DPHI(0,0)=0.0D0
-C     DPHI(1,0)=0.0D0
-C     DPHI(0,1)=0.0D0
 C     CALL DFFTSHIFT(NX,NY,DPHI)
 C     DO X=1,NX-1
 C       DO Y=1,NY-1
@@ -431,6 +456,7 @@ C  unexpected result.
 C
       INTEGER, INTENT(IN) :: NX,NY,Y2MAX
       INTEGER :: X1,Y1,X2,Y2,K
+      DOUBLE PRECISION, PARAMETER :: PI=3.14159265358979323846D0
       DOUBLE PRECISION :: DRHO(0:NX-1,0:NY-1),DPHI(0:NX-1,0:NY-1),
      &  DKX,DKY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(0:NX-1,0:NY-1)
@@ -440,17 +466,18 @@ C
 C     ZSP(0,0)=ZABS(ZSP(0,0))
 C     ZSP(0,1)=ZABS(ZSP(0,1))
 C     ZSP(1,0)=ZABS(ZSP(1,0))
-      DRHO=ZABS(ZSP)
-      DPHI=DATAN2(DIMAG(ZSP),DREAL(ZSP))
-      DKX=DPHI(1,0)
-      DKY=DPHI(0,1)
-      DO X1=0,NX-1
-        DO Y1=0,NX-1
-          DPHI(X1,Y1)=DPHI(X1,Y1)-DKX*DBLE(X1)-DKY*DBLE(Y1)
-        END DO
-      END DO
-      WRITE(*,*)DPHI(0,0),DPHI(1,0),DPHI(0,1)
-      ZSP=DRHO*DCMPLX(DCOS(DPHI)+DSIN(DPHI))
+c     DRHO=ZABS(ZSP)
+c     DPHI=DATAN2(DIMAG(ZSP),DREAL(ZSP))
+c     DKX=DBLE(NINT(DPHI(1,0)*DBLE(NX)*0.5D0/PI))*2.0D0*PI/DBLE(NX)
+c     DKY=DBLE(NINT(DPHI(0,1)*DBLE(NY)*0.5D0/PI))*2.0D0*PI/DBLE(NY)
+c     WRITE(*,*)DPHI(0,0),DPHI(1,0),DPHI(0,1)
+c     DO X1=0,NX-1
+c       DO Y1=0,NX-1
+c         DPHI(X1,Y1)=DPHI(X1,Y1)-DKX*DBLE(X1)-DKY*DBLE(Y1)
+c       END DO
+c     END DO
+c     WRITE(*,*)DPHI(0,0),DPHI(1,0),DPHI(0,1)
+c     ZSP=DRHO*DCMPLX(DCOS(DPHI),DSIN(DPHI))
       K=1
       DO Y2=0,Y2MAX
         DO X2=0,NX-1

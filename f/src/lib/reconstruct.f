@@ -449,6 +449,7 @@ C     ZSP(1,0)=ZABS(ZSP(1,0))
           DPHI(X1,Y1)=DPHI(X1,Y1)-DKX*DBLE(X1)-DKY*DBLE(Y1)
         END DO
       END DO
+      WRITE(*,*)DPHI(0,0),DPHI(1,0),DPHI(0,1)
       ZSP=DRHO*DCMPLX(DCOS(DPHI)+DSIN(DPHI))
       K=1
       DO Y2=0,Y2MAX

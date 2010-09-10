@@ -126,19 +126,6 @@ C
       CALL READIMAGE(FILENAME,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
       CALL IMAGETOSPECTRUM(NAXES(1),NAXES(2),DIMG,ZSP)
 C
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_i_real.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DREAL(ZSP))
-      WRITE(*,*)'real part of spectrum: '//
-     &  TRIM(PREFIX)//'_i_real.fits'
-      WRITE(UNIT,*)'real part of spectrum: '//
-     &  TRIM(PREFIX)//'_i_real.fits'
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_i_imag.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DIMAG(ZSP))
-      WRITE(*,*)'imaginary part of spectrum: '//
-     &  TRIM(PREFIX)//'_i_imag.fits'
-      WRITE(UNIT,*)'imaginary part of spectrum: '//
-     &  TRIM(PREFIX)//'_i_imag.fits'
-C
       DRHO=ZABS(ZSP)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_i_mod.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DRHO)
@@ -150,6 +137,7 @@ C
       CALL GETARGUMENT(NAXES(1),NAXES(2),ZSP,DPHI)
       DTMP=DPHI
       DPHI=DATAN2(DIMAG(ZSP),DREAL(ZSP))
+      DTMP=DTMP-DPHI
       WRITE(*,'(A,ES8.2)')' norm of phase difference: ',
      &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
       WRITE(UNIT,'(A,ES8.2)')' norm of phase difference: ',
@@ -162,45 +150,13 @@ C
       WRITE(UNIT,*)'input spectral phase: '//
      &  TRIM(PREFIX)//'_i_pha.fits'
 C
-      ZSP=DRHO*DCMPLX(DCOS(DPHI),DSIN(DPHI))
-      DTMP=DIMG
-      CALL SPECTRUMTOIMAGE(NAXES(1),NAXES(2),ZSP,DIMG)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_i_img.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DIMG)
-      WRITE(*,*)'input image recovered from spectrum: '//
-     &  TRIM(PREFIX)//'_i_img.fits'
-      WRITE(UNIT,*)'input image recovered from spectrum: '//
-     &  TRIM(PREFIX)//'_i_img.fits'
-C
-      DTMP=DTMP-DIMG
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_i_img_diff.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DTMP)
-      WRITE(*,*)'difference introduced by fourier transform: '//
-     &  TRIM(PREFIX)//'_i_img_diff.fits'
-      WRITE(UNIT,*)'difference introduced by fourier transform: '//
-     &  TRIM(PREFIX)//'_i_img_diff.fits'
-      WRITE(*,'(A,ES8.2)')' norm of difference: ',
-     &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
-      WRITE(UNIT,'(A,ES8.2)')' norm of difference: ',
-     &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
-      DIMG=DTMP
-C
-      DTMP=DPHI
-      DPHI=DSIN(DPHI)
-      CALL WRITEIMAGE(TRIM(PREFIX)//'_i_sin.fits',(/1,1,1/),
-     &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'sine of input spectral phase: '//
-     &  TRIM(PREFIX)//'_i_sin.fits'
-      WRITE(UNIT,*)'sine of input spectral phase: '//
-     &  TRIM(PREFIX)//'_i_sin.fits'
-C
       ZBISP=DCMPLX(0.0D0)
-C     CALL ADDBISP(NAXES(1),NAXES(2),ZSP,Y2MAX,ZBISP)
-      DO K=1,NUMFRMS
-        CALL ADDBISP(NAXES(1),NAXES(2),ZSP,Y2MAX,ZBISP)
-      END DO
-      ZBISP=ZBISP/DBLE(NUMFRMS)
-C     CALL MEANBISP(FILENAME,1,(/1,1/),Y2MAX,ZBISP)
+C     CALL MEANBISP(FILENAME,1,(/1,100/),Y2MAX,ZBISP)
+      CALL ADDBISP(NAXES(1),NAXES(2),ZSP,Y2MAX,ZBISP)
+C     DO K=1,NUMFRMS
+C       CALL ADDBISP(NAXES(1),NAXES(2),ZSP,Y2MAX,ZBISP)
+C     END DO
+C     ZBISP=ZBISP/DBLE(NUMFRMS)
 C     CALL GETARGUMENT(LBISP,1,ZBISP,DBISP)
       DBISP=DATAN2(DIMAG(ZBISP),DREAL(ZBISP))
       CALL RECURSPHASE(NAXES(1),NAXES(2),Y2MAX,DBISP,DPHI)
@@ -210,6 +166,12 @@ C     CALL GETARGUMENT(LBISP,1,ZBISP,DBISP)
      &  TRIM(PREFIX)//'_o_pha.fits'
       WRITE(UNIT,*)'phase recured from bispectrum: '//
      &  TRIM(PREFIX)//'_o_pha.fits'
+      DTMP=DPHI
+      DTMP=DPHI-DATAN2(DIMAG(ZSP),DREAL(ZSP))
+      WRITE(*,'(A,ES8.2)')' norm of phase difference: ',
+     &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
+      WRITE(UNIT,'(A,ES8.2)')' norm of phase difference: ',
+     &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
 C
       ZSP=DRHO*DCMPLX(DCOS(DPHI),DSIN(DPHI))
       DTMP=DIMG

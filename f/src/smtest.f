@@ -168,6 +168,8 @@ C     CALL GETARGUMENT(LBISP,1,ZBISP,DBISP)
      &  TRIM(PREFIX)//'_o_pha.fits'
       DTMP=DPHI
       DTMP=DPHI-DATAN2(DIMAG(ZSP),DREAL(ZSP))
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_o_pha_diff.fits',(/1,1,1/),
+     &  (/NAXES(1),NAXES(2),1/),DTMP)
       WRITE(*,'(A,ES8.2)')' norm of phase difference: ',
      &  DSQRT(SUM(DTMP*DTMP)/DBLE(NAXES(1)*NAXES(2)))
       WRITE(UNIT,'(A,ES8.2)')' norm of phase difference: ',

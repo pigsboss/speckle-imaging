@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa deconvklm
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+deconvklm: deconvklm.o libspeckle.o
+	gfortran -o deconvklm deconvklm.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 kisa: kisa.o libspeckle.o
 	gfortran -o kisa kisa.o libspeckle.o -lcfitsio -lfftw3_threads \
@@ -138,6 +142,9 @@ bgcut.o: bgcut.f
 
 libspeckle.o: libspeckle.f lib/math.f lib/signal.f lib/image.f lib/reconstruct.f
 	gfortran $(COPTIONS) -c -o libspeckle.o libspeckle.f $(CFLAGS)
+
+deconvklm.o: deconvklm.f
+	gfortran $(COPTIONS) -c -o deconvklm.o deconvklm.f $(CFLAGS)
 
 deconvwnr.o: deconvwnr.f
 	gfortran $(COPTIONS) -c -o deconvwnr.o deconvwnr.f $(CFLAGS)

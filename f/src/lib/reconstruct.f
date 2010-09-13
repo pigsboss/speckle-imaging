@@ -302,7 +302,7 @@ C  Determine R:
       END DO
       DCOV=DCOV/DBLE(NFRMS)
 C  TODO:: display the covariance matrix here.
-
+      CALL WRITEIMAGE('COV.FITS',(/1,1,1/),(/NX,NY,1/),DCOV)
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
       RETURN

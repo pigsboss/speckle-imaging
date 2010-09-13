@@ -1,3 +1,313 @@
+      SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,LBR,NBR,
+     &  INIFILE,PSFFILE,NUMIT,PREFIX)
+C  Arguments:
+C  ==========
+C  TARFILE - filename of target image (trunk).
+C  LBR     - a subset of the image trunk is a branch. length of branch.
+C  NBR     - number of branches.
+C  INIFILE - filename of initial estimated image.
+C  PSFFILE - filename of psf image.
+C  NUMIT   - number of iterations.
+C  PREFIX  - prefix of output filename.
+C
+      IMPLICIT NONE
+      INCLUDE 'fftw3.f'
+      INTEGER, INTENT(IN) :: LBR,NBR,NUMIT
+      CHARACTER(LEN=*), INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
+C
+      INTEGER :: STATUS,NAXES(3),OFFSETS(NBR),K,L,NBUF,LBUF,L1,L2,J,
+     &  XC,YC,PLANF,PLANB,INFO,I,XM,YM,NFRMS
+      INTEGER, PARAMETER :: UNIT=8,BUFSIZ=32
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DBR(:,:,:),DEST(:,:),
+     &  DPSF(:,:),DINI(:,:),DACF(:,:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:)
+      CHARACTER(LEN=256) :: NUMSTR
+C
+      INTERFACE
+      SUBROUTINE ZFFTSHIFT(NX,NY,ZSP)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
+      END SUBROUTINE ZFFTSHIFT
+      SUBROUTINE ZIFFTSHIFT(NX,NY,ZSP)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
+      END SUBROUTINE ZIFFTSHIFT
+      SUBROUTINE DECONVKALMAN(NX,NY,NFRMS,DG,DH,DF)
+      INTEGER, INTENT(IN) :: NX,NY,NFRMS
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      END SUBROUTINE DECONVKALMAN
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE APPENDIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE APPENDIMAGE
+      SUBROUTINE DFFTSHIFT(NX,NY,DIMG)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
+      END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(NX,NY,DIMG)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
+      END SUBROUTINE DIFFTSHIFT
+      END INTERFACE
+C
+      STATUS=0
+      OPEN(UNIT=UNIT,FILE=TRIM(PREFIX)//'.log',STATUS='REPLACE',
+     &  ACTION='WRITE',IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'open file failed.'
+        RETURN
+      END IF
+C
+      WRITE(*,*)'target: '//TRIM(TARFILE)
+      WRITE(UNIT,*)'target: '//TRIM(TARFILE)
+      WRITE(*,*)'PSF: '//TRIM(PSFFILE)
+      WRITE(UNIT,*)'PSF: '//TRIM(PSFFILE)
+      CALL IMAGESIZE(TARFILE,NAXES)
+      WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
+     &  NAXES(1),' x ',NAXES(2)
+      NFRMS=NAXES(3)
+      WRITE(*,'(A,I5)')' image frames: ',NAXES(3)
+      WRITE(UNIT,'(A,I5)')' image frames: ',NAXES(3)
+      WRITE(*,'(A,I4)')' number of branches: ',NBR
+      WRITE(UNIT,'(A,I4)')' number of branches: ',NBR
+      WRITE(*,'(A,I5)')' length of branch: ',LBR
+      WRITE(UNIT,'(A,I5)')' length of branch: ',LBR
+      WRITE(*,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
+      WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
+      LBUF=INT(FLOOR(DBLE(BUFSIZ*1024*1024/8)/DBLE(NAXES(1)*NAXES(2))))
+      NBUF=INT(CEILING(REAL(LBR)/REAL(LBUF)))
+      WRITE(*,'(A,I4,A)')' buffer length: ',LBUF,' frames'
+      WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUF,' frames'
+      WRITE(*,'(A,I4)')' number of buffers: ',NBUF
+      WRITE(UNIT,'(A,I4)')' number of buffers: ',NBUF
+C
+      ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUF),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DBR(NAXES(1),NAXES(2),NBR),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DEST(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DINI(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DPSF(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZIN(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZOUT(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DACF(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZSPE(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+C
+      CALL READIMAGE(PSFFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DPSF)
+      IF(LEN_TRIM(INIFILE) .GT. 0)THEN
+        CALL READIMAGE(INIFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DINI)
+        WRITE(*,*)'initial estimate: '//TRIM(INIFILE)
+        WRITE(UNIT,*)'initial estimate: '//TRIM(INIFILE)
+        CALL DIFFTSHIFT(NAXES(1),NAXES(2),DINI)
+      ELSE
+        DINI=0.0D0
+        DINI(1,1)=1.0D0
+      END IF
+C
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF(INFO .EQ. 0)THEN
+        WRITE(*,*)'error: DFFTW_INIT_THREADS failed.'
+        WRITE(UNIT,*)'error: DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
+      CALL DFFTW_PLAN_DFT_2D(PLANF,NAXES(1),NAXES(2),ZIN,ZOUT,-1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      CALL DFFTW_PLAN_DFT_2D(PLANB,NAXES(1),NAXES(2),ZIN,ZOUT,1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+C
+      XC=INT(CEILING(0.5*REAL(NAXES(1)+1)))
+      YC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
+      DEST=DINI
+      DO K=1,NBR
+        OFFSETS(K)=NINT(REAL((K-1)*(NFRMS-LBR))/REAL(NBR-1))+1
+      END DO
+      DO I=1,NUMIT
+        WRITE(*,'(A,I2,A,I2)')' iteration: ',I,' of ',NUMIT
+        WRITE(UNIT,'(A,I2,A,I2)')' iteration: ',I,' of ',NUMIT
+        WRITE(NUMSTR,*)I
+        NUMSTR=ADJUSTL(NUMSTR)
+        ZIN=DCMPLX(DEST)
+        CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+        ZSPE=ZOUT
+        DO K=1,NBR
+          WRITE(*,'(A,I4,A,I4)')' branch: ',K,' of ',NBR
+          WRITE(UNIT,'(A,I4,A,I4)')' branch: ',K,' of ',NBR
+          DBR(:,:,K)=0.0D0
+          DO J=1,NBUF
+            L1=OFFSETS(K)+(J-1)*LBUF
+            L2=MIN(OFFSETS(K)+J*LBUF-1,OFFSETS(K)+LBR-1)
+            WRITE(*,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
+     &        NBUF,', averaging from ',L1,' to ',L2
+            WRITE(UNIT,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
+     &        NBUF,', averaging from ',L1,' to ',L2
+            CALL READIMAGE(TARFILE,
+     &        (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
+            DO L=1,L2+1-L1
+              ZIN=DCMPLX(DBUF(:,:,L))
+              CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
+              CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+              ZIN=ZOUT*ZSPE
+              CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
+              DACF=ZABS(ZOUT)
+              CALL DFFTSHIFT(NAXES(1),NAXES(2),DACF)
+C             CALL WRITEIMAGE('TEST.FITS',
+C    &          (/1,1,1/),(/NAXES(1),NAXES(2),1/),DACF)
+C             RETURN
+              XM=MAXLOC(MAXVAL(DACF,2),1)
+              YM=MAXLOC(MAXVAL(DACF,1),2)
+c             XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
+c             YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
+              WRITE(*,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
+              WRITE(UNIT,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
+              DBR(:,:,K)=DBR(:,:,K)+EOSHIFT(
+     &          EOSHIFT(DBUF(:,:,L),XM-XC,0.0D0,1),YM-YC,0.0D0,2)
+            END DO
+          END DO
+          DBR(:,:,K)=DBR(:,:,K)*DBLE(NAXES(1)*NAXES(2))/DBLE(LBR)/
+     &      SUM(DBR(:,:,K))
+          CALL APPENDIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_br.fits'
+     &      ,(/1,1,K/),(/NAXES(1),NAXES(2),K/),DBR(:,:,K))
+        END DO
+      END DO
+C
+      CALL DFFTW_DESTROY_PLAN(PLANF)
+      CALL DFFTW_DESTROY_PLAN(PLANB)
+      CLOSE(UNIT)
+      DEALLOCATE(DBUF)
+      DEALLOCATE(DBR)
+      DEALLOCATE(DEST)
+      DEALLOCATE(DINI)
+      DEALLOCATE(DPSF)
+      DEALLOCATE(ZIN)
+      DEALLOCATE(ZOUT)
+      DEALLOCATE(ZSPE)
+      DEALLOCATE(DACF)
+      RETURN
+      END SUBROUTINE KALMANITERATIVESHIFTADD
+C ******************************************************************************
+      SUBROUTINE DECONVKALMAN(NX,NY,NFRMS,DG,DH,DF)
+      IMPLICIT NONE
+      INCLUDE 'fftw3.f'
+      INTEGER, INTENT(IN) :: NX,NY,NFRMS
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY)
+      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
+      INTEGER :: PLANF,PLANB,L,INFO,X,Y,XC,YC
+      DOUBLE PRECISION :: DP(NX,NY),DCOV(NX,NY),DR,DQ
+      DOUBLE COMPLEX :: ZH(NX,NY),ZK(NX,NY),ZIN(NX,NY),ZOUT(NX,NY),
+     &  ZF(NX,NY)
+C
+      INTERFACE
+      SUBROUTINE ZIFFTSHIFT(NX,NY,ZSP)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
+      END SUBROUTINE ZIFFTSHIFT
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      END INTERFACE
+C
+      CALL DFFTW_INIT_THREADS(INFO)
+      IF(INFO .EQ. 0)THEN
+        WRITE(*,*)'error: DFFTW_INIT_THREADS failed.'
+        RETURN
+      END IF
+      CALL DFFTW_PLAN_WITH_NTHREADS(2)
+      CALL DFFTW_PLAN_DFT_2D(PLANF,NX,NY,ZIN,ZOUT,-1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      CALL DFFTW_PLAN_DFT_2D(PLANB,NX,NY,ZIN,ZOUT,1,
+     &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
+      ZIN=DCMPLX(DH)
+      CALL ZIFFTSHIFT(NX,NY,ZIN)
+      CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+      ZH=ZOUT
+      ZIN=DCMPLX(DG(:,:,1))
+      CALL ZIFFTSHIFT(NX,NY,ZIN)
+      CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+      ZF=ZOUT
+      DP=0.0D0
+      DO X=1,NX
+        DP(X,X)=1.0D0
+      END DO
+      XC=INT(CEILING(0.5*REAL(NX+1)))
+      YC=INT(CEILING(0.5*REAL(NY+1)))
+C  Determine R:
+      DCOV=0.0D0
+      DP=0.0D0
+      DO L=1,NFRMS
+        DP(:,1)=DP(:,1)+DG(:,YC,L)
+      END DO
+      DP=DP/DBLE(NFRMS)
+      DO X=1,NX
+        DO Y=1,NY
+          DO L=1,NFRMS
+            DCOV(X,Y)=DCOV(X,Y)+
+     &        (DG(X,YC,L)-DP(X,1))*(DG(Y,YC,L)-DP(Y,1))
+          END DO
+        END DO
+      END DO
+      DCOV=DCOV/DBLE(NFRMS)
+C  TODO:: display the covariance matrix here.
+
+      CALL DFFTW_DESTROY_PLAN(PLANF)
+      CALL DFFTW_DESTROY_PLAN(PLANB)
+      RETURN
+      END SUBROUTINE DECONVKALMAN
+C ******************************************************************************
       SUBROUTINE SPECKLEMASKING(TFILE,NTRNG,TRNG,RFILE,NRRNG,RRNG,
      &  Y2MAX,PSDFILE,PREFIX)
       IMPLICIT NONE

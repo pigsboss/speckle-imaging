@@ -3,7 +3,7 @@ C  Kalman filter deconvolution executable.
 C
 C  Usage:
 C  ======
-C  deconvklm filename_g -psf=filename_h [-o=filename_f]
+C  deconvklm filename_g -psf=filename_h [-r=R] [-q=Q] [-o=filename_f]
 C
 C  Purpose:
 C  ========
@@ -19,7 +19,9 @@ C  Declaration:
 C  ============
       IMPLICIT NONE
       INTEGER :: NAXES(3),NARGS,STATUS,K
+      DOUBLE PRECISION, PARAMETER :: DEFAULTDR=1.0D4,DEFAULTDQ=1.0D-4
       DOUBLE PRECISION, ALLOCATABLE :: DF(:,:),DG(:,:,:),DH(:,:)
+      DOUBLE PRECISION :: DR,DQ
       CHARACTER(LEN=256) :: ARG,FILEG,FILEH,FILEF,BASENAME,EXTNAME
 C
       INTERFACE
@@ -31,9 +33,9 @@ C
       CHARACTER(LEN=*), INTENT(IN) :: PATH
       CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
       END SUBROUTINE RESOLVEPATH
-      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DF)
+      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DR,DQ,DF)
       INTEGER, INTENT(IN) :: NX,NY,NFRMS
-      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY)
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY),DR,DQ
       DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
       END SUBROUTINE DECONVKLM
       END INTERFACE
@@ -52,12 +54,18 @@ C
       FILEF=TRIM(BASENAME)//'_klm.fits'
       FILEH=''
       CALL IMAGESIZE(FILEG,NAXES)
+      DR=DEFAULTDR
+      DQ=DEFAULTDQ
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-psf=').GT.0)THEN
           FILEH=ARG(INDEX(ARG,'-psf=')+5:)
         ELSE IF(INDEX(ARG,'-o=').GT.0)THEN
           FILEF=ARG(INDEX(ARG,'-o=')+3:)
+        ELSE IF(INDEX(ARG,'-r=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-r=')+3:),*)DR
+        ELSE IF(INDEX(ARG,'-q=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-q=')+3:),*)DQ
         ELSE
           PRINT *,'unknown argument '//ARG
           STOP
@@ -84,7 +92,9 @@ C
         PRINT *,'out of memory.'
         STOP
       END IF
-      CALL DECONVKLM(NAXES(1),NAXES(2),NAXES(3),DG,DH,DF)
+      CALL DECONVKLM(NAXES(1),NAXES(2),NAXES(3),DG,DH,DR,DQ,DF)
+      CALL WRITEIMAGE(FILEF,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DF)
+      PRINT *,'output: '//TRIM(FILEF)
       DEALLOCATE(DG)
       DEALLOCATE(DH)
       DEALLOCATE(DF)

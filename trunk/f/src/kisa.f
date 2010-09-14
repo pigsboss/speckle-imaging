@@ -5,7 +5,7 @@ C
 C  Usage:
 C  ======
 C  kisa filename [-len-branch=n] [-num-branch=n] -psf=filename
-C    [-init=filename] [-prefix=output] [-n=numit]
+C    [-init=filename] [-r=R] [-q=Q] [-prefix=output] [-n=numit]
 C
 C  Argument:
 C  =========
@@ -17,6 +17,8 @@ C  =============
      &  DEFAULTNBR=10
       INTEGER :: STATUS,UNIT,LBR,NBR,NAXES(3),NARGS,K,NPIXELS,
      &  L,NRNG,NUMIT
+      DOUBLE PRECISION, PARAMETER :: DEFAULTDR=1.0D4,DEFAULTDQ=1.0D-4
+      DOUBLE PRECISION :: DR,DQ
       CHARACTER(LEN=256) :: INFILE,PREFIX,ARG,BASENAME,EXTNAME,IFILE,
      &  RFILE
       INTERFACE
@@ -29,8 +31,9 @@ C  =============
       CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
       END SUBROUTINE RESOLVEPATH
       SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,LBR,NBR,
-     &  INIFILE,PSFFILE,NUMIT,PREFIX)
+     &  INIFILE,PSFFILE,NUMIT,DR,DQ,PREFIX)
       INTEGER, INTENT(IN) :: LBR,NBR,NUMIT
+      DOUBLE PRECISION, INTENT(IN) :: DR,DQ
       CHARACTER(LEN=*), INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
       END SUBROUTINE KALMANITERATIVESHIFTADD
       END INTERFACE
@@ -57,6 +60,8 @@ C    =================================
       RFILE=''
       IFILE=''
       NUMIT=DEFAULTNUMIT
+      DR=DEFAULTDR
+      DQ=DEFAULTDQ
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-len-branch=').GT.0)THEN
@@ -71,6 +76,10 @@ C    =================================
           IFILE=ARG(INDEX(ARG,'-init=')+6:)
         ELSE IF(INDEX(ARG,'-n=').GT.0)THEN
           READ(ARG(INDEX(ARG,'-n=')+3:),*)NUMIT
+        ELSE IF(INDEX(ARG,'-r=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-r=')+3:),*)DR
+        ELSE IF(INDEX(ARG,'-q=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-q=')+3:),*)DQ
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
           STOP
@@ -88,6 +97,6 @@ C    =================================
       PRINT *,'reference: '//TRIM(RFILE)
       PRINT *,'prefix of output: '//TRIM(PREFIX)
       CALL KALMANITERATIVESHIFTADD(INFILE,LBR,NBR,
-     &  IFILE,RFILE,NUMIT,PREFIX)
+     &  IFILE,RFILE,NUMIT,DR,DQ,PREFIX)
       STOP
       END PROGRAM KISA

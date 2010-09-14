@@ -1,5 +1,5 @@
       SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,LBR,NBR,
-     &  INIFILE,PSFFILE,NUMIT,PREFIX)
+     &  INIFILE,PSFFILE,NUMIT,DR,DQ,PREFIX)
 C  Arguments:
 C  ==========
 C  TARFILE - filename of target image (trunk).
@@ -13,11 +13,13 @@ C
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER, INTENT(IN) :: LBR,NBR,NUMIT
+      DOUBLE PRECISION, INTENT(IN) :: DR,DQ
       CHARACTER(LEN=*), INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
 C
       INTEGER :: STATUS,NAXES(3),OFFSETS(NBR),K,L,NBUF,LBUF,L1,L2,J,
      &  XC,YC,PLANF,PLANB,INFO,I,XM,YM,NFRMS
       INTEGER, PARAMETER :: UNIT=8,BUFSIZ=32
+      DOUBLE PRECISION :: DSUM
       DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DBR(:,:,:),DEST(:,:),
      &  DPSF(:,:),DINI(:,:),DACF(:,:)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:)
@@ -32,9 +34,9 @@ C
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
       END SUBROUTINE ZIFFTSHIFT
-      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DF)
+      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DR,DQ,DF)
       INTEGER, INTENT(IN) :: NX,NY,NFRMS
-      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY)
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY),DR,DQ
       DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
       END SUBROUTINE DECONVKLM
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
@@ -179,6 +181,8 @@ C
         WRITE(UNIT,'(A,I2,A,I2)')' iteration: ',I,' of ',NUMIT
         WRITE(NUMSTR,*)I
         NUMSTR=ADJUSTL(NUMSTR)
+        CALL DELETEFILE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_br.fits',
+     &    STATUS)
         ZIN=DCMPLX(DEST)
         CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
         ZSPE=ZOUT
@@ -202,25 +206,46 @@ C
               ZIN=ZOUT*ZSPE
               CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
               DACF=ZABS(ZOUT)
-              CALL DFFTSHIFT(NAXES(1),NAXES(2),DACF)
-C             CALL WRITEIMAGE('TEST.FITS',
-C    &          (/1,1,1/),(/NAXES(1),NAXES(2),1/),DACF)
-C             RETURN
+C             CALL DFFTSHIFT(NAXES(1),NAXES(2),DACF)
               XM=MAXLOC(MAXVAL(DACF,2),1)
               YM=MAXLOC(MAXVAL(DACF,1),2)
-c             XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
-c             YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
-              WRITE(*,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
-              WRITE(UNIT,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
+              IF(NAXES(1)-XM .GT. XM-1)THEN
+                XM=XM-1
+              ELSE
+                XM=XM-NAXES(1)
+              END IF
+              IF(NAXES(2)-YM .GT. YM-1)THEN
+                YM=YM-1
+              ELSE
+                YM=YM-NAXES(2)
+              END IF
+C             XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
+C             YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
+C             WRITE(*,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
+C             WRITE(UNIT,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
               DBR(:,:,K)=DBR(:,:,K)+EOSHIFT(
-     &          EOSHIFT(DBUF(:,:,L),XM-XC,0.0D0,1),YM-YC,0.0D0,2)
+     &          EOSHIFT(DBUF(:,:,L),XM,0.0D0,1),YM,0.0D0,2)
             END DO
           END DO
-          DBR(:,:,K)=DBR(:,:,K)*DBLE(NAXES(1)*NAXES(2))/DBLE(LBR)/
-     &      SUM(DBR(:,:,K))
+          DBR(:,:,K)=DBR(:,:,K)/DBLE(LBR)
+          DSUM=SUM(DBR(:,:,K))
+          WRITE(*,'(A,ES7.1)')' total flux: ',DSUM
+          WRITE(UNIT,'(A,ES7.1)')' total flux: ',DSUM
+          DBR(:,:,K)=DBR(:,:,K)*DBLE(NAXES(1)*NAXES(2))/DSUM
           CALL APPENDIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_br.fits'
      &      ,(/1,1,K/),(/NAXES(1),NAXES(2),K/),DBR(:,:,K))
         END DO
+        CALL DECONVKLM(NAXES(1),NAXES(2),NBR,DBR,DPSF,DR,DQ,DEST)
+        XM=MAXLOC(MAXVAL(DEST,2),1)
+        YM=MAXLOC(MAXVAL(DEST,1),2)
+        DEST=EOSHIFT(EOSHIFT(DEST,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_dm.fits'
+     &    ,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
+        WRITE(*,*)'demodulated estimate: '//TRIM(PREFIX)//'_'//
+     &    TRIM(NUMSTR)//'_dm.fits'
+        WRITE(UNIT,*)'demodulated estimate: '//TRIM(PREFIX)//'_'//
+     &    TRIM(NUMSTR)//'_dm.fits'
+        CALL DIFFTSHIFT(NAXES(1),NAXES(2),DEST)
       END DO
 C
       CALL DFFTW_DESTROY_PLAN(PLANF)
@@ -238,18 +263,30 @@ C
       RETURN
       END SUBROUTINE KALMANITERATIVESHIFTADD
 C ******************************************************************************
-      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DF)
+      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DR,DQ,DF)
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER, INTENT(IN) :: NX,NY,NFRMS
-      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY)
+      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY),DR,DQ
       DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
       INTEGER :: PLANF,PLANB,L,INFO,X,Y,XC,YC
-      DOUBLE PRECISION :: DP(NX,NY),DCOV(NX,NY),DR,DQ
+      DOUBLE PRECISION :: DP(NX,NY),DTMP(NX,NY),DSUM
       DOUBLE COMPLEX :: ZH(NX,NY),ZK(NX,NY),ZIN(NX,NY),ZOUT(NX,NY),
      &  ZF(NX,NY)
 C
       INTERFACE
+      SUBROUTINE DFFTSHIFT(NX,NY,DIMG)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
+      END SUBROUTINE DFFTSHIFT
+      SUBROUTINE DIFFTSHIFT(NX,NY,DIMG)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
+      END SUBROUTINE DIFFTSHIFT
+      SUBROUTINE ZFFTSHIFT(NX,NY,ZSP)
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
+      END SUBROUTINE ZFFTSHIFT
       SUBROUTINE ZIFFTSHIFT(NX,NY,ZSP)
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
@@ -279,30 +316,39 @@ C
       CALL ZIFFTSHIFT(NX,NY,ZIN)
       CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
       ZF=ZOUT
-      DP=0.0D0
-      DO X=1,NX
-        DP(X,X)=1.0D0
-      END DO
-      XC=INT(CEILING(0.5*REAL(NX+1)))
-      YC=INT(CEILING(0.5*REAL(NY+1)))
-C  Determine R:
-      DCOV=0.0D0
-      DP=0.0D0
+      DP=1.0D0
+      DF=DG(:,:,1)
+      DSUM=SUM(DF)
+      WRITE(*,'(A,ES7.1)')' R = ',DR
+      WRITE(*,'(A,ES7.1)')' Q = ',DQ
+      CALL DIFFTSHIFT(NX,NY,DF)
       DO L=1,NFRMS
-        DP(:,1)=DP(:,1)+DG(:,YC,L)
-      END DO
-      DP=DP/DBLE(NFRMS)
-      DO X=1,NX
-        DO Y=1,NY
-          DO L=1,NFRMS
-            DCOV(X,Y)=DCOV(X,Y)+
-     &        (DG(X,YC,L)-DP(X,1))*(DG(Y,YC,L)-DP(Y,1))
+        DP=DP+DQ
+        ZK=DCMPLX(DP)*DCONJG(ZH)/(ZH*DCMPLX(DP)*DCONJG(ZH)+DCMPLX(DR))
+        ZIN=DCMPLX(DG(:,:,L))
+        CALL ZIFFTSHIFT(NX,NY,ZIN)
+        CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+        ZF=ZF+ZK*(ZOUT-ZH*ZF)
+C  Physical constaints:
+        ZIN=ZF
+        CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
+        DTMP=ZABS(ZOUT)
+        DO X=1,NX
+          DO Y=1,NY
+            IF(DTMP(X,Y) .LT. 0.0D0)THEN
+              DTMP(X,Y)=DF(X,Y)
+            END IF
           END DO
         END DO
+        DF=DTMP
+        DF=DF*DSUM/SUM(DF)
+        ZIN=DCMPLX(DF)
+        CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+        ZF=ZOUT
+C
+        DP=ZABS((DCMPLX(1.0D0)-ZK*ZH)*DCMPLX(DP))
       END DO
-      DCOV=DCOV/DBLE(NFRMS)
-C  TODO:: display the covariance matrix here.
-      CALL WRITEIMAGE('COV.FITS',(/1,1,1/),(/NX,NY,1/),DCOV)
+      CALL DFFTSHIFT(NX,NY,DF)
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
       RETURN

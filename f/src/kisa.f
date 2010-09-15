@@ -4,7 +4,7 @@ C  ==============================================
 C
 C  Usage:
 C  ======
-C  kisa filename [-len-branch=n] [-num-branch=n] -psf=filename
+C  kisa filename [-range=m,n] -psf=filename
 C    [-init=filename] [-r=R] [-q=Q] [-prefix=output] [-n=numit]
 C
 C  Argument:
@@ -13,9 +13,8 @@ C
 C  Declarations:
 C  =============
       IMPLICIT NONE
-      INTEGER, PARAMETER :: DEFAULTNUMIT=10,DEFAULTLBR=1000,
-     &  DEFAULTNBR=10
-      INTEGER :: STATUS,UNIT,LBR,NBR,NAXES(3),NARGS,K,NPIXELS,
+      INTEGER, PARAMETER :: DEFAULTNUMIT=10
+      INTEGER :: STATUS,UNIT,RNG(2),NAXES(3),NARGS,K,NPIXELS,
      &  L,NRNG,NUMIT
       DOUBLE PRECISION, PARAMETER :: DEFAULTDR=1.0D4,DEFAULTDQ=1.0D-4
       DOUBLE PRECISION :: DR,DQ
@@ -30,9 +29,9 @@ C  =============
       CHARACTER(LEN=*), INTENT(IN) :: PATH
       CHARACTER(LEN=*), INTENT(OUT) :: BASENAME,EXTNAME
       END SUBROUTINE RESOLVEPATH
-      SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,LBR,NBR,
+      SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,RNG,
      &  INIFILE,PSFFILE,NUMIT,DR,DQ,PREFIX)
-      INTEGER, INTENT(IN) :: LBR,NBR,NUMIT
+      INTEGER, INTENT(IN) :: RNG(2),NUMIT
       DOUBLE PRECISION, INTENT(IN) :: DR,DQ
       CHARACTER(LEN=*), INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
       END SUBROUTINE KALMANITERATIVESHIFTADD
@@ -55,8 +54,8 @@ C    =================================
       CALL IMAGESIZE(INFILE,NAXES)
       CALL RESOLVEPATH(INFILE,BASENAME,EXTNAME)
       PREFIX=TRIM(BASENAME)//'_kisa'
-      LBR=DEFAULTLBR
-      NBR=DEFAULTNBR
+      RNG(1)=1
+      RNG(2)=NAXES(3)
       RFILE=''
       IFILE=''
       NUMIT=DEFAULTNUMIT
@@ -64,10 +63,8 @@ C    =================================
       DQ=DEFAULTDQ
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
-        IF(INDEX(ARG,'-len-branch=').GT.0)THEN
-          READ(ARG(INDEX(ARG,'-len-branch=')+12:),*)LBR
-        ELSE IF(INDEX(ARG,'-num-branch=').GT.0)THEN
-          READ(ARG(INDEX(ARG,'-num-branch=')+12:),*)NBR
+        IF(INDEX(ARG,'-range=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-range=')+7:),*)RNG(1),RNG(2)
         ELSE IF(INDEX(ARG,'-prefix=').GT.0)THEN
           PREFIX=ARG(INDEX(ARG,'-prefix=')+8:)
         ELSE IF(INDEX(ARG,'-psf=').GT.0)THEN
@@ -96,7 +93,7 @@ C    =================================
       PRINT *,'input: '//TRIM(INFILE)
       PRINT *,'reference: '//TRIM(RFILE)
       PRINT *,'prefix of output: '//TRIM(PREFIX)
-      CALL KALMANITERATIVESHIFTADD(INFILE,LBR,NBR,
+      CALL KALMANITERATIVESHIFTADD(INFILE,RNG,
      &  IFILE,RFILE,NUMIT,DR,DQ,PREFIX)
       STOP
       END PROGRAM KISA

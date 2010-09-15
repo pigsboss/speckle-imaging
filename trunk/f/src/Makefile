@@ -9,6 +9,11 @@ all: $(ALL)
 install: $(ALL)
 	cp $(ALL) ../../test
 
+imagesc: imagesc.o libspeckle.o
+	gfortran -o imagesc imagesc.o libspeckle.o -lpgplot -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+
 deconvklm: deconvklm.o libspeckle.o
 	gfortran -o deconvklm deconvklm.o libspeckle.o -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -100,6 +105,9 @@ simobs: simobs.o libspeckle.o
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+imagesc.o: imagesc.f
+	gfortran $(COPTIONS) -c -o imagesc.o imagesc.f $(CFLAGS)
 
 img2spe.o: img2spe.f
 	gfortran $(COPTIONS) -c -o img2spe.o img2spe.f $(CFLAGS)

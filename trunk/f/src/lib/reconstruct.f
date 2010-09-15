@@ -1,31 +1,26 @@
-      SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,LBR,NBR,
+      SUBROUTINE KALMANITERATIVESHIFTADD(TARFILE,RNG,
      &  INIFILE,PSFFILE,NUMIT,DR,DQ,PREFIX)
-C  Arguments:
-C  ==========
-C  TARFILE - filename of target image (trunk).
-C  LBR     - a subset of the image trunk is a branch. length of branch.
-C  NBR     - number of branches.
-C  INIFILE - filename of initial estimated image.
-C  PSFFILE - filename of psf image.
-C  NUMIT   - number of iterations.
-C  PREFIX  - prefix of output filename.
-C
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
-      INTEGER, INTENT(IN) :: LBR,NBR,NUMIT
-      DOUBLE PRECISION, INTENT(IN) :: DR,DQ
-      CHARACTER(LEN=*), INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
+      INTEGER,INTENT(IN) :: RNG(2),NUMIT
+      DOUBLE PRECISION,INTENT(IN) :: DR,DQ
+      CHARACTER(LEN=*),INTENT(IN) :: TARFILE,INIFILE,PSFFILE,PREFIX
 C
-      INTEGER :: STATUS,NAXES(3),OFFSETS(NBR),K,L,NBUF,LBUF,L1,L2,J,
-     &  XC,YC,PLANF,PLANB,INFO,I,XM,YM,NFRMS
-      INTEGER, PARAMETER :: UNIT=8,BUFSIZ=32
+      INTEGER :: STATUS,NAXES(3),LBUF,NBUF,INFO,PLANF,PLANB,NFRMS,
+     &  I,J,K,K1,K2,X,Y,XC,YC,XM,YM
+      INTEGER,PARAMETER :: UNIT=8,BUFSIZ=128
       DOUBLE PRECISION :: DSUM
-      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DBR(:,:,:),DEST(:,:),
-     &  DPSF(:,:),DINI(:,:),DACF(:,:)
-      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:)
+      DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DTMP(:,:),DEST(:,:),
+     &  DPSF(:,:),DINI(:,:),DACF(:,:),DP(:,:)
+      DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:),
+     &  ZEST(:,:),ZH(:,:),ZK(:,:)
       CHARACTER(LEN=256) :: NUMSTR
 C
       INTERFACE
+      SUBROUTINE IMAGESIZE(FILENAME,NAXES)
+      INTEGER, INTENT(OUT) :: NAXES(3)
+      CHARACTER(LEN=*) :: FILENAME
+      END SUBROUTINE IMAGESIZE
       SUBROUTINE ZFFTSHIFT(NX,NY,ZSP)
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
@@ -34,21 +29,6 @@ C
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
       END SUBROUTINE ZIFFTSHIFT
-      SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DR,DQ,DF)
-      INTEGER, INTENT(IN) :: NX,NY,NFRMS
-      DOUBLE PRECISION, INTENT(IN) :: DG(NX,NY,NFRMS),DH(NX,NY),DR,DQ
-      DOUBLE PRECISION, INTENT(OUT) :: DF(NX,NY)
-      END SUBROUTINE DECONVKLM
-      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
-      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
-      END SUBROUTINE READIMAGE
-      SUBROUTINE APPENDIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
-      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
-      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
-      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
-      END SUBROUTINE APPENDIMAGE
       SUBROUTINE DFFTSHIFT(NX,NY,DIMG)
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
@@ -57,6 +37,21 @@ C
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE PRECISION, INTENT(INOUT) :: DIMG(NX,NY)
       END SUBROUTINE DIFFTSHIFT
+      SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(OUT) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE READIMAGE
+      SUBROUTINE WRITEIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE WRITEIMAGE
+      SUBROUTINE APPENDIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      DOUBLE PRECISION, INTENT(IN) :: DIMG(*)
+      CHARACTER(LEN=*), INTENT(IN) :: FILENAME
+      END SUBROUTINE APPENDIMAGE
       END INTERFACE
 C
       STATUS=0
@@ -67,38 +62,37 @@ C
         RETURN
       END IF
 C
-      WRITE(*,*)'target: '//TRIM(TARFILE)
-      WRITE(UNIT,*)'target: '//TRIM(TARFILE)
-      WRITE(*,*)'PSF: '//TRIM(PSFFILE)
-      WRITE(UNIT,*)'PSF: '//TRIM(PSFFILE)
+      WRITE(*,'(A,I5,A,I5)')' target: '//TRIM(TARFILE)//
+     &  ', from frame ',RNG(1),' to frame ',RNG(2)
+      WRITE(UNIT,'(A,I5,A,I5)')' target: '//TRIM(TARFILE)//
+     &  ', from frame ',RNG(1),' to frame ',RNG(2)
       CALL IMAGESIZE(TARFILE,NAXES)
+      IF((RNG(1) .GT. RNG(2)) .OR.
+     &  (RNG(2) .GT. NAXES(3)) .OR.
+     &  (RNG(1) .LT. 1))THEN
+        WRITE(*,*)'error: range invalid.'
+        WRITE(UNIT,*)'error: range invalid.'
+        RETURN
+      END IF
+      NFRMS=RNG(2)+1-RNG(1)
       WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
       WRITE(UNIT,'(A,I3,A,I3)')' image size (width x height): ',
      &  NAXES(1),' x ',NAXES(2)
-      NFRMS=NAXES(3)
-      WRITE(*,'(A,I5)')' image frames: ',NAXES(3)
-      WRITE(UNIT,'(A,I5)')' image frames: ',NAXES(3)
-      WRITE(*,'(A,I4)')' number of branches: ',NBR
-      WRITE(UNIT,'(A,I4)')' number of branches: ',NBR
-      WRITE(*,'(A,I5)')' length of branch: ',LBR
-      WRITE(UNIT,'(A,I5)')' length of branch: ',LBR
+      WRITE(*,*)'PSF: '//TRIM(PSFFILE)
+      WRITE(UNIT,*)'PSF: '//TRIM(PSFFILE)
+C
+      LBUF=INT(FLOOR(DBLE(BUFSIZ*1024*1024/8)/DBLE(NAXES(1)*NAXES(2))))
+      NBUF=INT(CEILING(REAL(NFRMS)/REAL(LBUF)))
+      
       WRITE(*,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
       WRITE(UNIT,'(A,I3,A)')' buffer size: ',BUFSIZ,'MB'
-      LBUF=INT(FLOOR(DBLE(BUFSIZ*1024*1024/8)/DBLE(NAXES(1)*NAXES(2))))
-      NBUF=INT(CEILING(REAL(LBR)/REAL(LBUF)))
       WRITE(*,'(A,I4,A)')' buffer length: ',LBUF,' frames'
       WRITE(UNIT,'(A,I4,A)')' buffer length: ',LBUF,' frames'
       WRITE(*,'(A,I4)')' number of buffers: ',NBUF
       WRITE(UNIT,'(A,I4)')' number of buffers: ',NBUF
 C
       ALLOCATE(DBUF(NAXES(1),NAXES(2),LBUF),STAT=STATUS)
-      IF(STATUS.NE.0)THEN
-        WRITE(*,*)'error: out of memory.'
-        WRITE(UNIT,*)'error: out of memory.'
-        RETURN
-      END IF
-      ALLOCATE(DBR(NAXES(1),NAXES(2),NBR),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
@@ -117,6 +111,36 @@ C
         RETURN
       END IF
       ALLOCATE(DPSF(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DTMP(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DP(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZEST(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZK(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(ZH(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
@@ -155,7 +179,7 @@ C
         CALL DIFFTSHIFT(NAXES(1),NAXES(2),DINI)
       ELSE
         DINI=0.0D0
-        DINI(1,1)=1.0D0
+        DINI(1,1)=DBLE(NAXES(1)*NAXES(2))
       END IF
 C
       CALL DFFTW_INIT_THREADS(INFO)
@@ -170,89 +194,114 @@ C
       CALL DFFTW_PLAN_DFT_2D(PLANB,NAXES(1),NAXES(2),ZIN,ZOUT,1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
 C
+      DEST=DINI
       XC=INT(CEILING(0.5*REAL(NAXES(1)+1)))
       YC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
-      DEST=DINI
-      DO K=1,NBR
-        OFFSETS(K)=NINT(REAL((K-1)*(NFRMS-LBR))/REAL(NBR-1))+1
-      END DO
+      DSUM=SUM(DEST)
+C
+      ZIN=DCMPLX(DPSF)
+      CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
+      CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+      ZH=ZOUT
+      DP=1.0D0
+      WRITE(*,'(A,ES7.1)')' R = ',DR
+      WRITE(UNIT,'(A,ES7.1)')' R = ',DR
+      WRITE(*,'(A,ES7.1)')' Q = ',DQ
+      WRITE(UNIT,'(A,ES7.1)')' Q = ',DQ
+C
       DO I=1,NUMIT
-        WRITE(*,'(A,I2,A,I2)')' iteration: ',I,' of ',NUMIT
-        WRITE(UNIT,'(A,I2,A,I2)')' iteration: ',I,' of ',NUMIT
+        WRITE(*,'(A,I3,A,I3)')' iteration: ',I,' of ',NUMIT
+        WRITE(UNIT,'(A,I3,A,I3)')' iteration: ',I,' of ',NUMIT
         WRITE(NUMSTR,*)I
         NUMSTR=ADJUSTL(NUMSTR)
-        CALL DELETEFILE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_br.fits',
-     &    STATUS)
+C  Update measurements:
         ZIN=DCMPLX(DEST)
         CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
-        ZSPE=ZOUT
-        DO K=1,NBR
-          WRITE(*,'(A,I4,A,I4)')' branch: ',K,' of ',NBR
-          WRITE(UNIT,'(A,I4,A,I4)')' branch: ',K,' of ',NBR
-          DBR(:,:,K)=0.0D0
-          DO J=1,NBUF
-            L1=OFFSETS(K)+(J-1)*LBUF
-            L2=MIN(OFFSETS(K)+J*LBUF-1,OFFSETS(K)+LBR-1)
-            WRITE(*,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
-     &        NBUF,', averaging from ',L1,' to ',L2
-            WRITE(UNIT,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
-     &        NBUF,', averaging from ',L1,' to ',L2
-            CALL READIMAGE(TARFILE,
-     &        (/1,1,L1/),(/NAXES(1),NAXES(2),L2/),DBUF)
-            DO L=1,L2+1-L1
-              ZIN=DCMPLX(DBUF(:,:,L))
-              CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
-              CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
-              ZIN=ZOUT*ZSPE
-              CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
-              DACF=ZABS(ZOUT)
-C             CALL DFFTSHIFT(NAXES(1),NAXES(2),DACF)
-              XM=MAXLOC(MAXVAL(DACF,2),1)
-              YM=MAXLOC(MAXVAL(DACF,1),2)
-              IF(NAXES(1)-XM .GT. XM-1)THEN
-                XM=XM-1
-              ELSE
-                XM=XM-NAXES(1)
-              END IF
-              IF(NAXES(2)-YM .GT. YM-1)THEN
-                YM=YM-1
-              ELSE
-                YM=YM-NAXES(2)
-              END IF
-C             XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
-C             YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
-C             WRITE(*,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
-C             WRITE(UNIT,'(A,I3,A,I3)')' maximum: ',XM,', ',YM
-              DBR(:,:,K)=DBR(:,:,K)+EOSHIFT(
-     &          EOSHIFT(DBUF(:,:,L),XM,0.0D0,1),YM,0.0D0,2)
-            END DO
+        ZEST=ZOUT
+        DTMP=0.0D0
+        DO J=1,NBUF
+          K1=RNG(1)+(J-1)*LBUF
+          K2=MIN(RNG(1)+J*LBUF-1,RNG(2))
+          WRITE(*,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
+     &      NBUF,', from frame ',K1,' to frame ',K2
+          WRITE(UNIT,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
+     &      NBUF,', from frame ',K1,' to frame ',K2
+          CALL READIMAGE(TARFILE,
+     &      (/1,1,K1/),(/NAXES(1),NAXES(2),K2/),DBUF)
+          DO K=1,K2+1-K1
+            ZIN=DCMPLX(DBUF(:,:,K))
+            CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
+            CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+            ZIN=ZOUT*ZEST
+            CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
+            DACF=ZABS(ZOUT)
+            XM=MAXLOC(MAXVAL(DACF,2),1)
+            YM=MAXLOC(MAXVAL(DACF,1),2)
+            IF(NAXES(1)-XM .GT. XM-1)THEN
+              XM=XM-1
+            ELSE
+              XM=XM-NAXES(1)
+            END IF
+            IF(NAXES(2)-YM .GT. YM-1)THEN
+              YM=YM-1
+            ELSE
+              YM=YM-NAXES(2)
+            END IF
+            DTMP=DTMP+EOSHIFT(EOSHIFT(DBUF(:,:,K),XM,0.0D0,1)
+     &        ,YM,0.0D0,2)
           END DO
-          DBR(:,:,K)=DBR(:,:,K)/DBLE(LBR)
-          DSUM=SUM(DBR(:,:,K))
-          WRITE(*,'(A,ES7.1)')' total flux: ',DSUM
-          WRITE(UNIT,'(A,ES7.1)')' total flux: ',DSUM
-          DBR(:,:,K)=DBR(:,:,K)*DBLE(NAXES(1)*NAXES(2))/DSUM
-          CALL APPENDIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_br.fits'
-     &      ,(/1,1,K/),(/NAXES(1),NAXES(2),K/),DBR(:,:,K))
         END DO
-        CALL DECONVKLM(NAXES(1),NAXES(2),NBR,DBR,DPSF,DR,DQ,DEST)
-        XM=MAXLOC(MAXVAL(DEST,2),1)
-        YM=MAXLOC(MAXVAL(DEST,1),2)
-        DEST=EOSHIFT(EOSHIFT(DEST,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
-        CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_dm.fits'
+        DTMP=DTMP/DBLE(NFRMS)
+        DTMP=DTMP*(DSUM/SUM(DTMP))
+        XM=MAXLOC(MAXVAL(DTMP,2),1)
+        YM=MAXLOC(MAXVAL(DTMP,1),2)
+        DTMP=EOSHIFT(EOSHIFT(DTMP,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_mes.fits',
+     &    (/1,1,1/),(/NAXES(1),NAXES(2),1/),DTMP)
+        WRITE(*,'(A,I3,A)')' measurement ',I,': '//
+     &    TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_mes.fits'
+        WRITE(UNIT,'(A,I3,A)')' measurement ',I,': '//
+     &    TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_mes.fits'
+C
+        DP=DP+DQ
+C
+        CALL DIFFTSHIFT(NAXES(1),NAXES(2),DTMP)
+        ZK=DCMPLX(DP)*DCONJG(ZH)/(ZH*DCMPLX(DP)*DCONJG(ZH)+DCMPLX(DR))
+        ZIN=DCMPLX(DTMP)
+        CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
+        ZEST=ZEST+ZK*(ZOUT-ZH*ZEST)
+        ZIN=ZEST
+        CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
+        DTMP=ZABS(ZOUT)
+        DO X=1,NAXES(1)
+          DO Y=1,NAXES(2)
+            IF(DTMP(X,Y) .LT. 0.0D0)THEN
+              DTMP(X,Y)=DEST(X,Y)
+            END IF
+          END DO
+        END DO
+        DEST=DTMP
+        DEST=DEST*(DSUM/SUM(DEST))
+        CALL DFFTSHIFT(NAXES(1),NAXES(2),DEST)
+        CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_est.fits'
      &    ,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DEST)
-        WRITE(*,*)'demodulated estimate: '//TRIM(PREFIX)//'_'//
-     &    TRIM(NUMSTR)//'_dm.fits'
-        WRITE(UNIT,*)'demodulated estimate: '//TRIM(PREFIX)//'_'//
-     &    TRIM(NUMSTR)//'_dm.fits'
+        WRITE(*,'(A,I3,A)')' demodulated estimate ',I,': '//
+     &    TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_est.fits'
+        WRITE(UNIT,'(A,I3,A)')' demodulated estimate ',I,': '//
+     &    TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_est.fits'
         CALL DIFFTSHIFT(NAXES(1),NAXES(2),DEST)
+C
+        DP=ZABS((DCMPLX(1.0D0)-ZK*ZH)*DCMPLX(DP))
       END DO
 C
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
       CLOSE(UNIT)
-      DEALLOCATE(DBUF)
-      DEALLOCATE(DBR)
+      DEALLOCATE(DP)
+      DEALLOCATE(DTMP)
+      DEALLOCATE(ZK)
+      DEALLOCATE(ZH)
+      DEALLOCATE(ZEST)
       DEALLOCATE(DEST)
       DEALLOCATE(DINI)
       DEALLOCATE(DPSF)

@@ -136,7 +136,7 @@ C
       CALL PGSVP(0.0, 1.0, 0.0, 1.0)
       CALL PGQVP(1, VPX1, VPX2, VPY1, VPY2)
       D=MIN(VPX2-VPX1, VPY2-VPY1)/40.0
-      VPX1 = VPX1 + 9.0*D
+      VPX1 = VPX1 + 12.0*D
       VPX2 = VPX2 - 2.0*D
       VPY1 = VPY1 + 8.0*D
       VPY2 = VPY2 - 2.0*D

@@ -131,7 +131,7 @@ C
       IF(PGOPEN('?') .LT. 1)THEN
         STOP
       END IF
-      TR=(/0.0, SC, 0.0, 0.0, 0.0,SC/)
+      TR=SC*(/XMIN-1, 1.0, 0.0, YMIN-1, 0.0, 1.0/)
       CALL PGPAGE
       CALL PGSVP(0.0, 1.0, 0.0, 1.0)
       CALL PGQVP(1, VPX1, VPX2, VPY1, VPY2)
@@ -141,8 +141,8 @@ C
       VPY1 = VPY1 + 8.0*D
       VPY2 = VPY2 - 2.0*D
       CALL PGVSIZ(VPX1, VPX2, VPY1, VPY2)
-      CALL PGWNAD(0.0,SC*(1.0+REAL(NAXES(1))),
-     &  0.0,SC*(1.0+REAL(NAXES(2))))
+      CALL PGWNAD(0.0,SC*(1.0+REAL(XMAX)),
+     &  0.0,SC*(1.0+REAL(YMAX)))
       CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
       CALL PGIMAG(REAL(DIMG),NAXES(1),NAXES(2),XMIN,XMAX,YMIN,YMAX
      &  ,CMIN,CMAX,TR)

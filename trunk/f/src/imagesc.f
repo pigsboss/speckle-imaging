@@ -3,7 +3,7 @@
       REAL,PARAMETER :: GL(2)=(/0.0, 1.0/),GR(2)=(/0.0, 1.0/),
      &  GG(2)=(/0.0, 1.0/),GB(2)=(/0.0, 1.0/)
       INTEGER :: STATUS,NAXES(3)
-      REAL :: TR(6)
+      REAL :: TR(6),VPX1,VPX2,VPY1,VPY2,D
       DOUBLE PRECISION,ALLOCATABLE :: DIMG(:,:)
       CHARACTER(LEN=256) :: IMGFILE
 C
@@ -58,6 +58,12 @@ C
       SUBROUTINE PGSCH(SZ)
       REAL :: SZ
       END SUBROUTINE PGSCH
+      SUBROUTINE PGVSTD
+      END SUBROUTINE PGVSTD
+      SUBROUTINE PGQVP(UNITS, X1, X2, Y1, Y2)
+      INTEGER :: UNITS
+      REAL :: X1, X2, Y1, Y2
+      END SUBROUTINE PGQVP
       END INTERFACE
 C
       STATUS=0
@@ -74,7 +80,14 @@ C
       END IF
       TR=(/0.,1.,0.,0.,0.,1./)
       CALL PGPAGE
-      CALL PGSVP(0.,1.,0.,1.)
+      CALL PGSVP(0.0, 1.0, 0.0, 1.0)
+      CALL PGQVP(1, VPX1, VPX2, VPY1, VPY2)
+      D=MIN(VPX2-VPX1, VPY2-VPY1)/40.0
+      VPX1 = VPX1 + 5.0*D
+      VPX2 = VPX2 - 2.0*D
+      VPY1 = VPY1 + 8.0*D
+      VPY2 = VPY2 - 2.0*D
+      CALL PGVSIZ(VPX1, VPX2, VPY1, VPY2)
       CALL PGWNAD(0.,1.0+REAL(NAXES(1)),0.,1.0+REAL(NAXES(2)))
       CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
       CALL PGIMAG(REAL(DIMG),NAXES(1),NAXES(2),1,NAXES(1),1,NAXES(2),
@@ -83,9 +96,9 @@ C
       CALL PGSCH(0.6)
       CALL PGBOX('BCNTSI',0.0,0,'BCNTSIV',0.0,0)
       CALL PGMTXT('B',3.0,1.0,1.0,'pixel number')
-C     CALL PGWEDG('BI',4.0,5.0,REAL(MINVAL(DIMG)),
-C    &  REAL(MAXVAL(DIMG)),'pixel value')
-C     CALL PGSCH(1.0)
+      CALL PGWEDG('BI',4.0,5.0,REAL(MINVAL(DIMG)),
+     &  REAL(MAXVAL(DIMG)),'pixel value')
+      CALL PGSCH(1.0)
       CALL PGCLOS
       DEALLOCATE(DIMG)
       STOP

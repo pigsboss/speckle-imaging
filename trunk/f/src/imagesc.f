@@ -126,6 +126,8 @@ C
           STOP
         END IF
       END DO
+      WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
+     &  ' subimage: (',XMIN,', ',YMIN,') to (',XMAX,', ',YMAX,')'
       IF(PGOPEN('?') .LT. 1)THEN
         STOP
       END IF

@@ -79,13 +79,13 @@ C
       CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
       CALL PGIMAG(REAL(DIMG),NAXES(1),NAXES(2),1,NAXES(1),1,NAXES(2),
      &  REAL(MINVAL(DIMG)),REAL(MAXVAL(DIMG)),TR)
-      CALL PGMTXT('t',1.0,0.0,0.0,'Estimate')
+      CALL PGMTXT('T',1.0,0.5,0.5,'IMAGESC')
       CALL PGSCH(0.6)
-      CALL PGBOX('bcntsi',0.0,0,'bcntsiv',0.0,0)
-      CALL PGMTXT('b',3.0,1.0,1.0,'pixel number')
-      CALL PGWEDG('BI',4.0,5.0,REAL(MINVAL(DIMG)),
-     &  REAL(MAXVAL(DIMG)),'pixel value')
-      CALL PGSCH(1.0)
+      CALL PGBOX('BCNTSI',0.0,0,'BCNTSIV',0.0,0)
+      CALL PGMTXT('B',3.0,1.0,1.0,'pixel number')
+C     CALL PGWEDG('BI',4.0,5.0,REAL(MINVAL(DIMG)),
+C    &  REAL(MAXVAL(DIMG)),'pixel value')
+C     CALL PGSCH(1.0)
       CALL PGCLOS
       DEALLOCATE(DIMG)
       STOP

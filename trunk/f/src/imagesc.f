@@ -131,8 +131,7 @@ C
       IF(PGOPEN('?') .LT. 1)THEN
         STOP
       END IF
-      TR=SC*(/REAL(1-XMIN), 1.0, 0.0,
-     &  REAL(1-YMIN), 0.0, 1.0/)
+      TR=SC*(/0.0, 1.0, 0.0, 0.0, 0.0, 1.0/)
       CALL PGPAGE
       CALL PGSVP(0.0, 1.0, 0.0, 1.0)
       CALL PGQVP(1, VPX1, VPX2, VPY1, VPY2)

@@ -1,11 +1,22 @@
       PROGRAM IMAGESC
       IMPLICIT NONE
       INTEGER :: STATUS,NAXES(3),XMIN,XMAX,YMIN,YMAX,NARGS,K
-      REAL,PARAMETER :: GL(2)=(/0.0, 1.0/),GR(2)=(/0.0, 1.0/),
-     &  GG(2)=(/0.0, 1.0/),GB(2)=(/0.0, 1.0/),DEFAULTSC=0.0429718
+      REAL,PARAMETER :: DEFAULTSC=0.0429718,
+     &  GL(2)=(/0.0, 1.0/),
+     &  GR(2)=(/0.0, 1.0/),
+     &  GG(2)=(/0.0, 1.0/),
+     &  GB(2)=(/0.0, 1.0/),
+     &  RL(9)=(/-0.5, 0.0, 0.17, 0.33, 0.50, 0.67, 0.83, 1.0, 1.7/),
+     &  RR(9)=(/ 0.0, 0.0,  0.0,  0.0,  0.6,  1.0,  1.0, 1.0, 1.0/),
+     &  RG(9)=(/ 0.0, 0.0,  0.0,  1.0,  1.0,  1.0,  0.6, 0.0, 1.0/),
+     &  RB(9)=(/ 0.0, 0.3,  0.8,  1.0,  0.3,  0.0,  0.0, 0.0, 1.0/),
+     &  HL(5)=(/0.0, 0.2, 0.4, 0.6, 1.0/),
+     &  HR(5)=(/0.0, 0.5, 1.0, 1.0, 1.0/),
+     &  HG(5)=(/0.0, 0.0, 0.5, 1.0, 1.0/),
+     &  HB(5)=(/0.0, 0.0, 0.0, 0.3, 1.0/)
       REAL :: TR(6),VPX1,VPX2,VPY1,VPY2,D,SC,CMIN,CMAX
       DOUBLE PRECISION,ALLOCATABLE :: DIMG(:,:)
-      CHARACTER(LEN=256) :: IMGFILE,ARG,TITLE,XLAB,YLAB,CLAB
+      CHARACTER(LEN=256) :: IMGFILE,ARG,TITLE,XLAB,YLAB,CLAB,COLOR
 C
       INTERFACE
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
@@ -82,6 +93,7 @@ C
         PRINT *,'  [-ymin=y_min] [-ymax=y_max] [-scale=sc]'
         PRINT *,'  [-max=c_max] [-min=c_min] [-xlabel=x_label]'
         PRINT *,'  [-ylabel=y_label] [-title=title] [-clabel=c_label]'
+        PRINT *,'  [-color=color]'
         STOP
       END IF
       CALL GET_COMMAND_ARGUMENT(1,IMGFILE)
@@ -103,6 +115,7 @@ C
       XLAB='x/arcsec'
       YLAB='y/arcsec'
       CLAB='Intensity'
+      COLOR='gray'
       TITLE=IMGFILE
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
@@ -128,6 +141,8 @@ C
           TITLE=ARG(INDEX(ARG,'-title=')+7:)
         ELSE IF(INDEX(ARG,'-clabel=').GT.0)THEN
           CLAB=ARG(INDEX(ARG,'-clabel=')+8:)
+        ELSE IF(INDEX(ARG,'-color=').GT.0)THEN
+          COLOR=ARG(INDEX(ARG,'-color=')+7:)
         ELSE
           PRINT *,'unknown argument '//ARG
           STOP
@@ -150,7 +165,16 @@ C
       CALL PGVSIZ(VPX1, VPX2, VPY1, VPY2)
       CALL PGWNAD(SC*REAL(XMIN-1),SC*REAL(XMAX+1),
      &  SC*REAL(YMIN-1),SC*REAL(YMAX+1))
-      CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
+      IF(INDEX(COLOR,'gray').GT.0)THEN
+        CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
+      ELSE IF(INDEX(COLOR,'heat').GT.0)THEN
+        CALL PGCTAB(HL,HR,HG,HB,5,1.0,0.5)
+      ELSE IF(INDEX(COLOR,'rainbow').GT.0)THEN
+        CALL PGCTAB(RL,RR,RG,RB,9,1.0,0.5)
+      ELSE
+        PRINT *,'error: unknown color table.'
+        CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
+      END IF
       CALL PGIMAG(REAL(DIMG),NAXES(1),NAXES(2),XMIN,XMAX,YMIN,YMAX
      &  ,CMIN,CMAX,TR)
       CALL PGSCH(1.0)

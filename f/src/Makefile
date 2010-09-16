@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa deconvklm
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa deconvklm defringe imagesc
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+defringe: defringe.o libspeckle.o
+	gfortran -o defringe defringe.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 imagesc: imagesc.o libspeckle.o
 	gfortran -o imagesc imagesc.o libspeckle.o -lpgplot -lcfitsio -lfftw3_threads \
@@ -105,6 +109,9 @@ simobs: simobs.o libspeckle.o
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+defringe.o: defringe.f
+	gfortran $(COPTIONS) -c -o defringe.o defringe.f $(CFLAGS)
 
 imagesc.o: imagesc.f
 	gfortran $(COPTIONS) -c -o imagesc.o imagesc.f $(CFLAGS)

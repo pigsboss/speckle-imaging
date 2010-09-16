@@ -8,10 +8,10 @@
 C
       INTEGER :: STATUS,NAXES(3),LBUF,NBUF,INFO,PLANF,PLANB,NFRMS,
      &  I,J,K,K1,K2,X,Y,XC,YC,XM,YM
-      INTEGER,PARAMETER :: UNIT=8,BUFSIZ=128
-      DOUBLE PRECISION :: DSUM
+      INTEGER,PARAMETER :: UNIT=8,BUFSIZ=512
+      DOUBLE PRECISION :: DSUM,DVAR
       DOUBLE PRECISION, ALLOCATABLE :: DBUF(:,:,:),DTMP(:,:),DEST(:,:),
-     &  DPSF(:,:),DINI(:,:),DACF(:,:),DP(:,:)
+     &  DPSF(:,:),DINI(:,:),DACF(:,:),DP(:,:),DMES(:,:)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:),
      &  ZEST(:,:),ZH(:,:),ZK(:,:)
       CHARACTER(LEN=256) :: NUMSTR
@@ -99,6 +99,12 @@ C
         RETURN
       END IF
       ALLOCATE(DEST(NAXES(1),NAXES(2)),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        WRITE(*,*)'error: out of memory.'
+        WRITE(UNIT,*)'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DMES(NAXES(1),NAXES(2)),STAT=STATUS)
       IF(STATUS.NE.0)THEN
         WRITE(*,*)'error: out of memory.'
         WRITE(UNIT,*)'error: out of memory.'
@@ -194,11 +200,11 @@ C
       CALL DFFTW_PLAN_DFT_2D(PLANB,NAXES(1),NAXES(2),ZIN,ZOUT,1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
 C
+      DMES=DINI
       DEST=DINI
       XC=INT(CEILING(0.5*REAL(NAXES(1)+1)))
       YC=INT(CEILING(0.5*REAL(NAXES(2)+1)))
       DSUM=SUM(DEST)
-C
       ZIN=DCMPLX(DPSF)
       CALL ZIFFTSHIFT(NAXES(1),NAXES(2),ZIN)
       CALL DFFTW_EXECUTE_DFT(PLANF,ZIN,ZOUT)
@@ -210,8 +216,6 @@ C
       WRITE(UNIT,'(A,ES7.1)')' Q = ',DQ
 C
       DO I=1,NUMIT
-        WRITE(*,'(A,I3,A,I3)')' iteration: ',I,' of ',NUMIT
-        WRITE(UNIT,'(A,I3,A,I3)')' iteration: ',I,' of ',NUMIT
         WRITE(NUMSTR,*)I
         NUMSTR=ADJUSTL(NUMSTR)
 C  Update measurements:
@@ -222,10 +226,12 @@ C  Update measurements:
         DO J=1,NBUF
           K1=RNG(1)+(J-1)*LBUF
           K2=MIN(RNG(1)+J*LBUF-1,RNG(2))
-          WRITE(*,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
-     &      NBUF,', from frame ',K1,' to frame ',K2
-          WRITE(UNIT,'(A,I4,A,I4,A,I5,A,I5)')' buffer ',J,' of ',
-     &      NBUF,', from frame ',K1,' to frame ',K2
+          WRITE(*,'(A,I3,A,I3,A,I4,A,I4,A,I5,A,I5)')
+     &      ' iteration ',I,' of ',NUMIT,
+     &      ', buffer ',J,' of ',NBUF,', from frame ',K1,' to frame ',K2
+          WRITE(UNIT,'(A,I3,A,I3,A,I4,A,I4,A,I5,A,I5)')
+     &      ' iteration ',I,' of ',NUMIT,
+     &      ', buffer ',J,' of ',NBUF,', from frame ',K1,' to frame ',K2
           CALL READIMAGE(TARFILE,
      &      (/1,1,K1/),(/NAXES(1),NAXES(2),K2/),DBUF)
           DO K=1,K2+1-K1
@@ -253,6 +259,15 @@ C  Update measurements:
         END DO
         DTMP=DTMP/DBLE(NFRMS)
         DTMP=DTMP*(DSUM/SUM(DTMP))
+        DVAR=DSQRT(SUM((DTMP-DMES)*(DTMP-DMES))/DBLE(NAXES(1)*NAXES(2)))
+        WRITE(*,'(A,I3,A,ES7.1)')' standard deviation ',I,': ',DVAR
+        WRITE(UNIT,'(A,I3,A,ES7.1)')' standard deviation ',I,': ',DVAR
+        IF(DVAR .LE. 1.0D-14)THEN
+          WRITE(*,*)'iteration ends.'
+          WRITE(UNIT,*)'iteration ends.'
+          EXIT
+        END IF
+        DMES=DTMP
         XM=MAXLOC(MAXVAL(DTMP,2),1)
         YM=MAXLOC(MAXVAL(DTMP,1),2)
         DTMP=EOSHIFT(EOSHIFT(DTMP,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
@@ -299,6 +314,7 @@ C
       CLOSE(UNIT)
       DEALLOCATE(DP)
       DEALLOCATE(DTMP)
+      DEALLOCATE(DMES)
       DEALLOCATE(ZK)
       DEALLOCATE(ZH)
       DEALLOCATE(ZEST)

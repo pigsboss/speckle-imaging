@@ -16,7 +16,8 @@
      &  HB(5)=(/0.0, 0.0, 0.0, 0.3, 1.0/)
       REAL :: TR(6),VPX1,VPX2,VPY1,VPY2,D,SC,CMIN,CMAX
       DOUBLE PRECISION,ALLOCATABLE :: DIMG(:,:)
-      CHARACTER(LEN=256) :: IMGFILE,ARG,TITLE,XLAB,YLAB,CLAB,COLOR
+      CHARACTER(LEN=256) :: IMGFILE,ARG,TITLE,XLAB,YLAB,CLAB,COLOR,
+     &  DEVICE
 C
       INTERFACE
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
@@ -93,7 +94,7 @@ C
         PRINT *,'  [-ymin=y_min] [-ymax=y_max] [-scale=sc]'
         PRINT *,'  [-max=c_max] [-min=c_min] [-xlabel=x_label]'
         PRINT *,'  [-ylabel=y_label] [-title=title] [-clabel=c_label]'
-        PRINT *,'  [-color=color]'
+        PRINT *,'  [-color=color_scheme] [-device=device_name]'
         STOP
       END IF
       CALL GET_COMMAND_ARGUMENT(1,IMGFILE)
@@ -116,6 +117,7 @@ C
       YLAB='y/arcsec'
       CLAB='Intensity'
       COLOR='gray'
+      DEVICE='?'
       TITLE=IMGFILE
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
@@ -143,6 +145,8 @@ C
           CLAB=ARG(INDEX(ARG,'-clabel=')+8:)
         ELSE IF(INDEX(ARG,'-color=').GT.0)THEN
           COLOR=ARG(INDEX(ARG,'-color=')+7:)
+        ELSE IF(INDEX(ARG,'-device=').GT.0)THEN
+          DEVICE=ARG(INDEX(ARG,'-device=')+8:)
         ELSE
           PRINT *,'unknown argument '//ARG
           STOP
@@ -150,7 +154,7 @@ C
       END DO
       WRITE(*,'(A,I3,A,I3,A,I3,A,I3,A)')
      &  ' subimage: (',XMIN,', ',YMIN,') to (',XMAX,', ',YMAX,')'
-      IF(PGOPEN('?') .LT. 1)THEN
+      IF(PGOPEN(TRIM(DEVICE)) .LT. 1)THEN
         STOP
       END IF
       TR=SC*(/0.0, 1.0, 0.0, 0.0, 0.0, 1.0/)

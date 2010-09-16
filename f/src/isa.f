@@ -96,8 +96,8 @@ C    =================================
       IF(NRNG .EQ. 0)THEN
         NRNG=1
       END IF
-      WRITE(*,'(A,ES9.2)')' SNR=',DSNR
-      WRITE(*,'(A,I2)')' number of iterations: ',NUMIT
+      WRITE(*,'(A,ES7.1)')' SNR=',DSNR
+      WRITE(*,'(A,I3)')' number of iterations: ',NUMIT
       PRINT *,'input: '//TRIM(INFILE)
       PRINT *,'initial estimate: '//TRIM(IFILE)
       PRINT *,'reference: '//TRIM(RFILE)

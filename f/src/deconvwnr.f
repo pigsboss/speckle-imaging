@@ -83,6 +83,7 @@ C  ============
         RETURN
       END IF
       CALL DECONVWNR(NAXES(1),NAXES(2),DG,DF,DH,DSNR)
+      WRITE(*,'(A,ES7.1)')' SNR: ',DSNR
       CALL WRITEIMAGE(FILEF,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DF)
       PRINT *,'output: '//TRIM(FILEF)
       DEALLOCATE(DG)

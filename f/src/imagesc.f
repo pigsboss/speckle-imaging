@@ -1,6 +1,6 @@
       PROGRAM IMAGESC
       IMPLICIT NONE
-      INTEGER :: STATUS,NAXES(3),XMIN,XMAX,YMIN,YMAX,NARGS,K
+      INTEGER :: STATUS,NAXES(3),XMIN,XMAX,YMIN,YMAX,NARGS,K,ITF,FRAME
       REAL,PARAMETER :: DEFAULTSC=0.0429718,
      &  GL(2)=(/0.0, 1.0/),
      &  GR(2)=(/0.0, 1.0/),
@@ -17,7 +17,7 @@
       REAL :: TR(6),VPX1,VPX2,VPY1,VPY2,D,SC,CMIN,CMAX
       DOUBLE PRECISION,ALLOCATABLE :: DIMG(:,:)
       CHARACTER(LEN=256) :: IMGFILE,ARG,TITLE,XLAB,YLAB,CLAB,COLOR,
-     &  DEVICE
+     &  DEVICE,MAP
 C
       INTERFACE
       SUBROUTINE READIMAGE(FILENAME,FPIXELS,LPIXELS,DIMG)
@@ -83,6 +83,9 @@ C
       SUBROUTINE PGSCF(FONT)
       INTEGER :: FONT
       END SUBROUTINE PGSCF
+      SUBROUTINE PGSITF(ITF)
+      INTEGER :: ITF
+      END SUBROUTINE PGSITF
       END INTERFACE
 C
       STATUS=0
@@ -95,8 +98,10 @@ C
         PRINT *,'  [-max=c_max] [-min=c_min] [-xlabel=x_label]'
         PRINT *,'  [-ylabel=y_label] [-title=title] [-clabel=c_label]'
         PRINT *,'  [-color=color_scheme] [-device=device_name]'
+        PRINT *,'  [-map=linear,log,sqrt] [-frame=n]'
         STOP
       END IF
+      NARGS=COMMAND_ARGUMENT_COUNT()
       CALL GET_COMMAND_ARGUMENT(1,IMGFILE)
       CALL IMAGESIZE(IMGFILE,NAXES)
       ALLOCATE(DIMG(NAXES(1),NAXES(2)),STAT=STATUS)
@@ -104,8 +109,17 @@ C
         WRITE(*,*)'error: out of memory.'
         STOP
       END IF
-      CALL READIMAGE(IMGFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DIMG)
-      NARGS=COMMAND_ARGUMENT_COUNT()
+      FRAME=1
+      DO K=2,NARGS
+        CALL GET_COMMAND_ARGUMENT(K,ARG)
+        IF(INDEX(ARG,'-frame=').GT.0)THEN
+          READ(ARG(INDEX(ARG,'-frame=')+7:),*)FRAME
+          FRAME=MIN(FRAME,NAXES(3))
+          WRITE(*,'(A,I5)') ' frame: ',FRAME
+        END IF
+      END DO
+      CALL READIMAGE(IMGFILE,(/1,1,FRAME/),
+     &  (/NAXES(1),NAXES(2),FRAME/),DIMG)
       XMIN=1
       YMIN=1
       XMAX=NAXES(1)
@@ -117,12 +131,14 @@ C
       YLAB='y/arcsec'
       CLAB='Intensity'
       COLOR='gray'
+      MAP='linear'
       DEVICE='?'
       TITLE=IMGFILE
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-xmin=').GT.0)THEN
           READ(ARG(INDEX(ARG,'-xmin=')+6:),*)XMIN
+        ELSE IF(INDEX(ARG,'-frame=').GT.0)THEN
         ELSE IF(INDEX(ARG,'-xmax=').GT.0)THEN
           READ(ARG(INDEX(ARG,'-xmax=')+6:),*)XMAX
         ELSE IF(INDEX(ARG,'-ymin=').GT.0)THEN
@@ -147,6 +163,8 @@ C
           COLOR=ARG(INDEX(ARG,'-color=')+7:)
         ELSE IF(INDEX(ARG,'-device=').GT.0)THEN
           DEVICE=ARG(INDEX(ARG,'-device=')+8:)
+        ELSE IF(INDEX(ARG,'-map=').GT.0)THEN
+          MAP=ARG(INDEX(ARG,'-map=')+5:)
         ELSE
           PRINT *,'unknown argument '//ARG
           STOP
@@ -158,6 +176,16 @@ C
         STOP
       END IF
       TR=SC*(/0.0, 1.0, 0.0, 0.0, 0.0, 1.0/)
+      IF(INDEX(MAP,'linear') .GT. 0)THEN
+        ITF=0
+      ELSE IF(INDEX(MAP,'log') .GT. 0)THEN
+        ITF=1
+      ELSE IF(INDEX(MAP,'sqrt') .GT. 0)THEN
+        ITF=2
+      ELSE
+        PRINT *,'error: unknown image transfer function.'
+        ITF=0
+      END IF
       CALL PGPAGE
       CALL PGSVP(0.0, 1.0, 0.0, 1.0)
       CALL PGQVP(1, VPX1, VPX2, VPY1, VPY2)
@@ -179,6 +207,7 @@ C
         PRINT *,'error: unknown color table.'
         CALL PGCTAB(GL,GR,GG,GB,2,1.0,0.5)
       END IF
+      CALL PGSITF(ITF)
       CALL PGIMAG(REAL(DIMG),NAXES(1),NAXES(2),XMIN,XMAX,YMIN,YMAX
      &  ,CMIN,CMAX,TR)
       CALL PGSCH(1.0)

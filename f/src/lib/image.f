@@ -189,8 +189,8 @@ C ******************************************************************************
         RETURN
       END IF
       DO K=1,NBUFFER
-        L1=(K-1)*LBUFFER+1
-        L2=MIN(K*LBUFFER,NFRAMES)
+        L1=(K-1)*LBUFFER+FPIXELS(1)
+        L2=MIN(K*LBUFFER,LPIXELS(1))
 C       PRINT *,'READIMAGE from',L1,'to',L2
         CALL READIMAGE(IMGFILE,(/FPIXELS(1),FPIXELS(2),L1/),
      &    (/LPIXELS(1),LPIXELS(2),L2/),DBUF)

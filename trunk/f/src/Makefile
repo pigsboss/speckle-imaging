@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa deconvklm defringe imagesc
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spe2img img2spe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+rffm: rffm.o libspeckle.o
+	gfortran -o rffm rffm.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 defringe: defringe.o libspeckle.o
 	gfortran -o defringe defringe.o libspeckle.o -lcfitsio -lfftw3_threads \
@@ -133,6 +137,9 @@ kisa.o: kisa.f
 
 snr.o: snr.f
 	gfortran $(COPTIONS) -c -o snr.o snr.f $(CFLAGS)
+
+rffm.o: rffm.f
+	gfortran $(COPTIONS) -c -o rffm.o rffm.f $(CFLAGS)
 
 ffc.o: ffc.f
 	gfortran $(COPTIONS) -c -o ffc.o ffc.f $(CFLAGS)

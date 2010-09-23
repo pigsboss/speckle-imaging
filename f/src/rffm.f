@@ -63,11 +63,12 @@ C
         PRINT *,'Retrieve phase from modulus.'
         PRINT *,'rffm filename_modulus -phase=filename'
         PRINT *,'  [-prefix=...] [-gain=...]'
+        STOP
       END IF
 C
       CALL GET_COMMAND_ARGUMENT(1,MODFILE)
       CALL RESOLVEPATH(MODFILE,BASENAME,EXTNAME)
-      PREFIX=BASENAME//'_prm'
+      PREFIX=TRIM(BASENAME)//'_prm'
       DGAIN=DEFAULTDGAIN
       PHAFILE=''
       DO K=2,NARGS
@@ -89,9 +90,9 @@ C
         STOP
       END IF
 C
-      WRITE(*,*)'initial phase: '//PHAFILE
-      WRITE(*,*)'modulus: '//MODFILE
-      WRITE(*,*)'prefix of output filename: '//PREFIX
+      WRITE(*,*)'initial phase: '//TRIM(PHAFILE)
+      WRITE(*,*)'modulus: '//TRIM(MODFILE)
+      WRITE(*,*)'prefix of output filename: '//TRIM(PREFIX)
       WRITE(*,'(A,ES8.2)')' gain factor: ',DGAIN
       CALL IMAGESIZE(MODFILE,NAXES)
       WRITE(*,'(A,I3,A,I3)')' image size (width x height): ',
@@ -119,16 +120,17 @@ C
       END IF
 C
       CALL READIMAGE(MODFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DRHO)
+      CALL DIFFTSHIFT(NAXES(1),NAXES(2),DRHO)
       CALL READIMAGE(PHAFILE,(/1,1,1/),(/NAXES(1),NAXES(2),1/),DPHI)
       CALL RETRIEVEPHASEFROMMODULUS(NAXES(1),NAXES(2),DRHO,DPHI,DGAIN)
       ZSPE=DCMPLX(DRHO)*DCMPLX(DCOS(DPHI),DSIN(DPHI))
       CALL SPECTRUMTOIMAGE(NAXES(1),NAXES(2),ZSPE,DIMG)
-      CALL WRITEIMAGE(PREFIX//'_pha.fits',(/1,1,1/),
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_pha.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DPHI)
-      WRITE(*,*)'retrieved phase: '//PREFIX//'_pha.fits'
-      CALL WRITEIMAGE(PREFIX//'_img.fits',(/1,1,1/),
+      WRITE(*,*)'retrieved phase: '//TRIM(PREFIX)//'_pha.fits'
+      CALL WRITEIMAGE(TRIM(PREFIX)//'_img.fits',(/1,1,1/),
      &  (/NAXES(1),NAXES(2),1/),DIMG)
-      WRITE(*,*)'improved image: '//PREFIX//'_img.fits'
+      WRITE(*,*)'improved image: '//TRIM(PREFIX)//'_img.fits'
 C
       DEALLOCATE(DRHO)
       DEALLOCATE(DPHI)

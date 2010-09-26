@@ -2,6 +2,11 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <style>
+    body {
+      font-family: "Monospace" ! important;
+    }
+  </style>
   <title>Speckle Imaging WebUI</title>
 </head>
   <body>

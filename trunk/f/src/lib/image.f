@@ -1,3 +1,47 @@
+      SUBROUTINE BMPSIZE(FILENAME,SIZ)
+      IMPLICIT NONE
+      CHARACTER(LEN=*),INTENT(IN) :: FILENAME
+      INTEGER,INTENT(OUT) :: SIZ(3)
+      INTEGER :: STATUS
+      INTEGER, PARAMETER :: UNIT=8
+      INTEGER*4 :: BMSIZE,BMOFFSET,BMWIDTH,BMHEIGHT,HEADSIZE,
+     & COMPRESS
+      INTEGER*2 :: PBITS
+      CHARACTER(LEN=2) :: MAGNUM
+      STATUS=0
+      OPEN(UNIT=UNIT,FILE=TRIM(FILENAME),ACCESS='STREAM',
+     & FORM='UNFORMATTED',ACTION='READ',POSITION='REWIND',
+     & IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'open file failed.'
+        STOP
+      END IF
+      READ(UNIT,POS=1) MAGNUM
+      READ(UNIT,POS=3) BMSIZE
+      READ(UNIT,POS=11) BMOFFSET
+      READ(UNIT,POS=15) HEADSIZE
+      READ(UNIT,POS=19) BMWIDTH
+      READ(UNIT,POS=23) BMHEIGHT
+      WRITE(*,*) TRIM(FILENAME)
+      WRITE(*,*)          'magic number   : '//MAGNUM
+      WRITE(*,'(A,I8,A)')' total size     : ',BMSIZE,   ' bytes'
+      WRITE(*,'(A,I4,A)')' raw data offset: ',BMOFFSET, '     bytes'
+      WRITE(*,'(A,I4,A)')' header size    : ',HEADSIZE, '     bytes'
+      WRITE(*,'(A,I4,A)')' bitmap width   : ',BMWIDTH,  '     pixels'
+      WRITE(*,'(A,I4,A)')' bitmap height  : ',BMHEIGHT, '     pixels'
+      IF(HEADSIZE .GE. 40) THEN
+        READ(UNIT,POS=29) PBITS
+        READ(UNIT,POS=31) COMPRESS
+        WRITE(*,'(A,I2,A)')' bits depth     : ',PBITS,    '       bits'
+        WRITE(*,'(A,I1)')  ' compress type  : ',COMPRESS
+      END IF
+      SIZ(1)=BMWIDTH
+      SIZ(2)=BMHEIGHT
+      SIZ(3)=PBITS/8
+      CLOSE(UNIT)      
+      RETURN
+      END SUBROUTINE BMPSIZE
+C ******************************************************************************
       SUBROUTINE SPECTRUMTOIMAGE(NX,NY,ZSP,DIMG)
       IMPLICIT NONE
       INCLUDE 'fftw3.f'

@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spetoimg imgtospe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm fitsinfo bmptofits simobs
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spetoimg imgtospe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm fitsinfo bmptofits simobs poissrndtest
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+poissrndtest: poissrndtest.o libspeckle.o
+	gfortran -o poissrndtest poissrndtest.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 simobs: simobs.o libspeckle.o
 	gfortran -o simobs simobs.o libspeckle.o -lcfitsio -lfftw3_threads \
@@ -120,6 +124,9 @@ smtest: smtest.o libspeckle.o
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+poissrndtest.o: poissrndtest.f
+	gfortran $(COPTIONS) -c -o poissrndtest.o poissrndtest.f $(CFLAGS)
 
 simobs.o: simobs.f
 	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)

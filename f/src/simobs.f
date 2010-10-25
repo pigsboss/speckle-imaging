@@ -4,11 +4,14 @@ C  simulated objects.
 C
 C  Usage:
 C  ======
-C  ./simobs ref_file [-range=m,n] -obj=obj_file [-prefix=...]
+C  ./simobs ref_file [-range=m,n] -obj=obj_file [-bg=cts_bg] [-noise]
+C    [-prefix=...]
 C
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
-      INTEGER :: STATUS,NARGS,K,RNG(2),NAXES(3),PLANF,PLANB,INFO
+      INTEGER :: STATUS,NARGS,K,RNG(2),NAXES(3),PLANF,PLANB,INFO,X,Y
+      LOGICAL :: SIMNOISE
+      DOUBLE PRECISION :: DBGL
       DOUBLE PRECISION, ALLOCATABLE :: DREF(:,:),DOBJ(:,:),DOBS(:,:)
       DOUBLE COMPLEX, ALLOCATABLE :: ZIN(:,:),ZOUT(:,:),ZSPE(:,:)
       CHARACTER(LEN=256) :: REFFILE,OBJFILE,PREFIX,ARG,BASENAME,EXTNAME
@@ -43,6 +46,12 @@ C
       INTEGER, INTENT(IN) :: NX,NY
       DOUBLE COMPLEX, INTENT(INOUT) :: ZSP(NX,NY)
       END SUBROUTINE ZFFTSHIFT
+      SUBROUTINE INIT_RANDOM_SEED()
+      END SUBROUTINE INIT_RANDOM_SEED
+      FUNCTION POISSRND(DLAMBDA)
+      INTEGER :: POISSRND
+      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA
+      END FUNCTION POISSRND
       END INTERFACE
 C  Statements:
 C  ===========
@@ -54,13 +63,15 @@ C    =================================
         PRINT *,'Usage:'
         PRINT *,'======'
         PRINT *,'simobs ref_file [-range=m,n] -obj=obj_file'
-        PRINT *,'  [-prefix=prefix_of_output]'
+        PRINT *,'  [-prefix=prefix_of_output] [-bg=cts_bg] [-noise]'
         STOP
       END IF
       NARGS=COMMAND_ARGUMENT_COUNT()
       CALL GET_COMMAND_ARGUMENT(1,REFFILE)
       CALL IMAGESIZE(REFFILE,NAXES)
       CALL RESOLVEPATH(REFFILE,BASENAME,EXTNAME)
+      SIMNOISE = .FALSE.
+      DBGL = 0.0D0
       OBJFILE=''
       RNG(1)=1
       RNG(2)=NAXES(3)
@@ -73,6 +84,10 @@ C    =================================
           PREFIX=ARG(INDEX(ARG,'-prefix=')+8:)
         ELSE IF(INDEX(ARG,'-obj=').GT.0)THEN
           OBJFILE=ARG(INDEX(ARG,'-obj=')+5:)
+        ELSE IF(INDEX(ARG,'-noise').EQ.1)THEN
+          SIMNOISE=.TRUE.
+        ELSE IF(INDEX(ARG,'-bg=').EQ.1)THEN
+          READ(ARG(INDEX(ARG,'-bg=')+4:),*)DBGL
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
           STOP
@@ -121,6 +136,7 @@ C    ===========
       END IF
 C    Generate the simulated observations:
 C    ====================================
+      CALL INIT_RANDOM_SEED()
       CALL DFFTW_INIT_THREADS(INFO)
       IF (INFO .EQ. 0)THEN
         PRINT *,'error: DFFTW_INIT_THREADS failed.'
@@ -155,6 +171,13 @@ C    ====================================
           CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
           CALL ZFFTSHIFT(NAXES(1),NAXES(2),ZOUT)
           DOBS=ZABS(ZOUT)/DSQRT(DBLE(NAXES(1)*NAXES(2)))
+          IF (SIMNOISE) THEN
+            DO X=1,NAXES(1)
+              DO Y=1,NAXES(2)
+                DOBS(X,Y)=POISSRND(DOBS(X,Y)+DBGL)
+              END DO
+            END DO
+          END IF
           CALL APPENDIMAGE(TRIM(PREFIX)//'_sim_obs.fits',
      &      (/1,1,(K+1)/2/),(/NAXES(1),NAXES(2),(K+1)/2/),DOBS)
           WRITE(*,'(A,I5,A,I5)')' append frame ',K,

@@ -1,6 +1,6 @@
 CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -I/usr/include -I/home/azzuro/usr/include
 
-ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spetoimg imgtospe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm fitsinfo bmptofits
+ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spetoimg imgtospe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm fitsinfo bmptofits simobs
 
 COPTIONS=-O3
 
@@ -8,6 +8,10 @@ all: $(ALL)
 
 install: $(ALL)
 	cp $(ALL) ../../test
+
+simobs: simobs.o libspeckle.o
+	gfortran -o simobs simobs.o libspeckle.o -lcfitsio -lfftw3_threads \
+	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
 bmptofits: bmptofits.o libspeckle.o
 	gfortran -o bmptofits bmptofits.o libspeckle.o -lcfitsio -lfftw3_threads \
@@ -28,7 +32,6 @@ defringe: defringe.o libspeckle.o
 imagesc: imagesc.o libspeckle.o
 	gfortran -o imagesc imagesc.o libspeckle.o -lpgplot -lcfitsio -lfftw3_threads \
 	-lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
 
 deconvklm: deconvklm.o libspeckle.o
 	gfortran -o deconvklm deconvklm.o libspeckle.o -lcfitsio -lfftw3_threads \
@@ -121,6 +124,9 @@ simobs: simobs.o libspeckle.o
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
+
+simobs.o: simobs.f
+	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)
 
 bmptofits.o: bmptofits.f
 	gfortran $(COPTIONS) -c -o bmptofits.o bmptofits.f $(CFLAGS)

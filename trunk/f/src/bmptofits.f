@@ -36,8 +36,7 @@ C
       IF(INDEX(ARG,'-help').GT.0)THEN
         PRINT *,'Usage:'
         PRINT *,'======'
-        PRINT *,'kisa filename [-len-branch=n] [-num-branch=n]'//
-     &    ' -psf=filename [-init=filename] [-prefix=output] [-n=numit]'
+        PRINT *,'bmptofits bmpfile.bmp [fitsfile.fits]'
         STOP
       END IF
       CALL GET_COMMAND_ARGUMENT(1,INFILE)
@@ -49,7 +48,7 @@ C
       CALL BMPINFO(INFILE,BMOFFSET,NX,NY,PBITS,COMPRESS)
       ALLOCATE(DIMG(NX,NY),STAT=STATUS)
       IF(STATUS.NE.0)THEN
-        PRINT *,'error: open file failed.'
+        PRINT *,'error: out of memory.'
         STOP
       END IF
       IF(COMPRESS .NE. 0) THEN

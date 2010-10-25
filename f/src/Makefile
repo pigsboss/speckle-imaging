@@ -117,10 +117,6 @@ smtest: smtest.o libspeckle.o
 	gfortran -o smtest smtest.o libspeckle.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
 
-simobs: simobs.o libspeckle.o
-	gfortran -o simobs simobs.o libspeckle.o -lcfitsio \
-	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
-
 buildsmtest: buildsmtest.o libspeckle.o smrec.o
 	gfortran -o buildsmtest buildsmtest.o libspeckle.o smrec.o -lcfitsio \
 	-lfftw3_threads -lpthread -lfftw3 -lm -llapack -lblas $(CFLAGS)
@@ -214,9 +210,6 @@ center.o: center.f
 
 buildsmtest.o: buildsmtest.f
 	gfortran $(COPTIONS) -c -o buildsmtest.o buildsmtest.f $(CFLAGS)
-
-simobs.o: simobs.f
-	gfortran $(COPTIONS) -c -o simobs.o simobs.f $(CFLAGS)
 
 corr2.o: corr2.f
 	gfortran $(COPTIONS) -c -o corr2.o corr2.f $(CFLAGS)

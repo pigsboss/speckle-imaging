@@ -1,46 +1,91 @@
-      SUBROUTINE BMPSIZE(FILENAME,SIZ)
+      SUBROUTINE READBMP(FILENAME,BMOFFSET,NX,NY,PSIZE,DIMG)
       IMPLICIT NONE
       CHARACTER(LEN=*),INTENT(IN) :: FILENAME
-      INTEGER,INTENT(OUT) :: SIZ(3)
+      INTEGER,INTENT(IN) :: BMOFFSET,NX,NY,PSIZE
+      DOUBLE PRECISION,INTENT(OUT) :: DIMG(NX,NY)
+      INTEGER :: STATUS,ROWSIZE,X,Y
+      INTEGER,PARAMETER :: UNIT=8
+      INTEGER*1,ALLOCATABLE :: BM(:)
+      DOUBLE PRECISION,ALLOCATABLE :: DBM(:)
+      OPEN(UNIT=UNIT,FILE=TRIM(FILENAME),ACCESS='STREAM',
+     & FORM='UNFORMATTED',ACTION='READ',POSITION='REWIND',
+     & IOSTAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'error: open file failed.'
+        RETURN
+      END IF
+      ROWSIZE=INT(CEILING(FLOAT(NX*PSIZE)/4.0))*4
+      ALLOCATE(BM(ROWSIZE),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'error: out of memory.'
+        RETURN
+      END IF
+      ALLOCATE(DBM(ROWSIZE),STAT=STATUS)
+      IF(STATUS.NE.0)THEN
+        PRINT *,'error: out of memory.'
+        RETURN
+      END IF
+      DO Y=1,NY
+        READ(UNIT,POS=(BMOFFSET+(Y-1)*ROWSIZE)) BM
+        DO X=1,ROWSIZE
+          IF(BM(X) .LT. 0) THEN
+            DBM(X)=DBLE(BM(X))+256.0D0
+          ELSE
+            DBM(X)=DBLE(BM(X))
+          END IF
+        END DO
+        DO X=1,NX
+          DIMG(X,Y)=SUM(DBLE(DBM(1+(X-1)*PSIZE:PSIZE*X)))
+C         DIMG(X,Y)=DBLE(DBM(1+(X-1)*PSIZE))
+        END DO
+      END DO
+      DEALLOCATE(BM)
+      DEALLOCATE(DBM)
+      RETURN
+      END SUBROUTINE READBMP
+C ******************************************************************************
+      SUBROUTINE BMPINFO(FILENAME,BMOFFSET,NX,NY,PBITS,COMPRESS)
+      IMPLICIT NONE
+      CHARACTER(LEN=*),INTENT(IN) :: FILENAME
+      INTEGER*4,INTENT(OUT) :: BMOFFSET,NX,NY,PBITS,COMPRESS
       INTEGER :: STATUS
       INTEGER, PARAMETER :: UNIT=8
-      INTEGER*4 :: BMSIZE,BMOFFSET,BMWIDTH,BMHEIGHT,HEADSIZE,
-     & COMPRESS
-      INTEGER*2 :: PBITS
+      INTEGER*4 :: BMSIZE,HEADSIZE
+      INTEGER*2 :: SPBITS
       CHARACTER(LEN=2) :: MAGNUM
       STATUS=0
+      PBITS=0
+      COMPRESS=0
       OPEN(UNIT=UNIT,FILE=TRIM(FILENAME),ACCESS='STREAM',
      & FORM='UNFORMATTED',ACTION='READ',POSITION='REWIND',
      & IOSTAT=STATUS)
       IF(STATUS.NE.0)THEN
         PRINT *,'open file failed.'
-        STOP
+        RETURN
       END IF
       READ(UNIT,POS=1) MAGNUM
       READ(UNIT,POS=3) BMSIZE
       READ(UNIT,POS=11) BMOFFSET
       READ(UNIT,POS=15) HEADSIZE
-      READ(UNIT,POS=19) BMWIDTH
-      READ(UNIT,POS=23) BMHEIGHT
+      READ(UNIT,POS=19) NX
+      READ(UNIT,POS=23) NY
       WRITE(*,*) TRIM(FILENAME)
-      WRITE(*,*)          'magic number   : '//MAGNUM
+      WRITE(*,*)          'magic number   :          '//MAGNUM
       WRITE(*,'(A,I8,A)')' total size     : ',BMSIZE,   ' bytes'
-      WRITE(*,'(A,I4,A)')' raw data offset: ',BMOFFSET, '     bytes'
-      WRITE(*,'(A,I4,A)')' header size    : ',HEADSIZE, '     bytes'
-      WRITE(*,'(A,I4,A)')' bitmap width   : ',BMWIDTH,  '     pixels'
-      WRITE(*,'(A,I4,A)')' bitmap height  : ',BMHEIGHT, '     pixels'
+      WRITE(*,'(A,I8,A)')' raw data offset: ',BMOFFSET, ' bytes'
+      WRITE(*,'(A,I8,A)')' header size    : ',HEADSIZE, ' bytes'
+      WRITE(*,'(A,I8,A)')' bitmap width   : ',NX,       ' pixels'
+      WRITE(*,'(A,I8,A)')' bitmap height  : ',NY,       ' pixels'
       IF(HEADSIZE .GE. 40) THEN
-        READ(UNIT,POS=29) PBITS
+        READ(UNIT,POS=29) SPBITS
+        PBITS=SPBITS
         READ(UNIT,POS=31) COMPRESS
-        WRITE(*,'(A,I2,A)')' bits depth     : ',PBITS,    '       bits'
-        WRITE(*,'(A,I1)')  ' compress type  : ',COMPRESS
+        WRITE(*,'(A,I8)')' bits per pixel : ',PBITS
+        WRITE(*,'(A,I8)')' compress type  : ',COMPRESS
       END IF
-      SIZ(1)=BMWIDTH
-      SIZ(2)=BMHEIGHT
-      SIZ(3)=PBITS/8
       CLOSE(UNIT)      
       RETURN
-      END SUBROUTINE BMPSIZE
+      END SUBROUTINE BMPINFO
 C ******************************************************************************
       SUBROUTINE SPECTRUMTOIMAGE(NX,NY,ZSP,DIMG)
       IMPLICIT NONE

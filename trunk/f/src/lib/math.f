@@ -1,3 +1,37 @@
+      FUNCTION POISSRND(DLAMBDA)
+      IMPLICIT NONE
+      INTEGER :: POISSRND
+      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA
+      INTEGER :: K
+      DOUBLE PRECISION :: DL,DP,DU
+      DL=DEXP(-1.0D0 * DLAMBDA)
+      K=0
+      DP=1.0D0
+      DO
+        K = K + 1
+        CALL RANDOM_NUMBER(DU)
+        DP = DP * DU
+        IF (DP .LE. DL) THEN
+          EXIT
+        END IF
+      END DO
+      POISSRND = K - 1
+      RETURN
+      END FUNCTION POISSRND
+C ******************************************************************************
+      SUBROUTINE INIT_RANDOM_SEED()
+      IMPLICIT NONE
+      INTEGER :: I, N, CLOCK
+      INTEGER, DIMENSION(:), ALLOCATABLE :: SEED
+      CALL RANDOM_SEED(SIZE = N)
+      ALLOCATE(SEED(N))
+      CALL SYSTEM_CLOCK(COUNT = CLOCK)
+      SEED = CLOCK + 37 * (/ (I - 1, I = 1, N) /)
+      CALL RANDOM_SEED(PUT = SEED)
+      DEALLOCATE(SEED)
+      RETURN
+      END SUBROUTINE INIT_RANDOM_SEED
+C ******************************************************************************
       SUBROUTINE GETARGUMENT(NX,NY,ZX,DPHI)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NX,NY

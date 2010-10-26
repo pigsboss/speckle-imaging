@@ -4,10 +4,13 @@ C  =================================
 C
 C  Usage:
 C  ======
-C  ./bmptofits bmpfile.bmp [fitsfile.fits]
+C  ./bmptofits bmpfile.bmp [-mean=] [-o=fitsfile.fits]
+C
+C  mean - mean counts of each pixel.
 C
       IMPLICIT NONE
-      INTEGER :: STATUS,NARGS,BMOFFSET,NX,NY,PBITS,COMPRESS,PSIZE
+      INTEGER :: STATUS,NARGS,BMOFFSET,NX,NY,PBITS,COMPRESS,PSIZE,K
+      DOUBLE PRECISION :: DMEAN
       DOUBLE PRECISION,ALLOCATABLE :: DIMG(:,:)
       CHARACTER(LEN=256) :: ARG,INFILE,OUTFILE,BASENAME,EXTNAME,PREFIX
       INTERFACE
@@ -31,20 +34,30 @@ C
       END SUBROUTINE WRITEIMAGE
       END INTERFACE
       STATUS=0
-      NARGS=COMMAND_ARGUMENT_COUNT()
       CALL GET_COMMAND_ARGUMENT(1,ARG)
       IF(INDEX(ARG,'-help').GT.0)THEN
         PRINT *,'Usage:'
         PRINT *,'======'
-        PRINT *,'bmptofits bmpfile.bmp [fitsfile.fits]'
+        PRINT *,'bmptofits bmpfile.bmp [-mean=] [-o=output]'
+        PRINT *,'  mean - mean counts of each pixel'
         STOP
       END IF
       CALL GET_COMMAND_ARGUMENT(1,INFILE)
       CALL RESOLVEPATH(INFILE,BASENAME,EXTNAME)
       OUTFILE=TRIM(BASENAME)//'.fits'
-      IF(NARGS .GT. 1)THEN
-        CALL GET_COMMAND_ARGUMENT(2,OUTFILE)
-      END IF
+      DMEAN=-1.0D0
+      NARGS=COMMAND_ARGUMENT_COUNT()
+      DO K=2,NARGS
+        CALL GET_COMMAND_ARGUMENT(K,ARG)
+        IF(INDEX(ARG,'-mean=').EQ.1)THEN
+          READ(ARG(INDEX(ARG,'-mean=')+6:),*)DMEAN
+        ELSE IF(INDEX(ARG,'-o=').EQ.1)THEN
+          OUTFILE=ARG(INDEX(ARG,'-o=')+3:)
+        ELSE
+          PRINT *,'Unknown argument '//TRIM(ARG)
+          STOP
+        END IF
+      END DO
       CALL BMPINFO(INFILE,BMOFFSET,NX,NY,PBITS,COMPRESS)
       ALLOCATE(DIMG(NX,NY),STAT=STATUS)
       IF(STATUS.NE.0)THEN
@@ -61,6 +74,9 @@ C
       END IF
       PSIZE=INT(PBITS)/8
       CALL READBMP(INFILE,BMOFFSET,NX,NY,PSIZE,DIMG)
+      IF(DMEAN .GT. 0.0D0) THEN
+        DIMG = DIMG/(SUM(DIMG)/(DBLE(NX)*DBLE(NY)*DMEAN))
+      END IF
       CALL WRITEIMAGE(TRIM(OUTFILE),(/1,1,1/),(/NX,NY,1/),DIMG)
       DEALLOCATE(DIMG)
       STOP

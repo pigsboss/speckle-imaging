@@ -46,8 +46,8 @@ C    =================================
       IF(INDEX(ARG,'-help').GT.0)THEN
         PRINT *,'Usage:'
         PRINT *,'======'
-        PRINT *,'kisa filename [-len-branch=n] [-num-branch=n]'//
-     &    ' -psf=filename [-init=filename] [-prefix=output] [-n=numit]'
+        PRINT *,'kisa filename [-range=m,n] -psf=filename'//
+     &    '  [-init=filename] [-r=R] [-q=Q] [-prefix=output] [-n=numit]'
         STOP
       END IF
       CALL GET_COMMAND_ARGUMENT(1,INFILE)

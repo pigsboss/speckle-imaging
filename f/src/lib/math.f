@@ -13,7 +13,7 @@
         K = K + FLAG
         CALL RANDOM_NUMBER(DU)
         DP = DP * DU
-        FLAG = IDNINT(DSIGN(0.5D0,DP-DL)+0.5D0)
+        FLAG = IDNINT(-1.0D0*DSIGN(0.5D0,DL-DP)+0.5D0)
         IF (SUM(FLAG) .LE. 0) THEN
           EXIT
         END IF

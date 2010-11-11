@@ -24,7 +24,6 @@
         END DO
 C        FLAG = IDNINT(-1.0D0*DSIGN(0.5D0,DL-DP)+0.5D0)
         IF (SUM(FLAG) .LE. 0) THEN
-          write(*,*) sum(flag)
           EXIT
         END IF
       END DO

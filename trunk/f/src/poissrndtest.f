@@ -22,5 +22,6 @@
         CALL POISSRNDM(L,1,DLAMBDA,RND)
         WRITE(*,*) RND
       END DO
+      write(*,*) poissrnd(1000)
       STOP
       END PROGRAM POISSRNDTEST

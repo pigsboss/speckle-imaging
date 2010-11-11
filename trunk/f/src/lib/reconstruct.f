@@ -456,7 +456,7 @@ C
       CALL DFFTW_DESTROY_PLAN(PLANF)
       CALL DFFTW_DESTROY_PLAN(PLANB)
       RETURN
-      END SUBROUTINE DCONVRL
+      END SUBROUTINE DECONVRL
 C ******************************************************************************
       SUBROUTINE DECONVKLM(NX,NY,NFRMS,DG,DH,DR,DQ,DF)
       IMPLICIT NONE

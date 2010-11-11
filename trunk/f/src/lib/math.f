@@ -3,7 +3,7 @@
       INTEGER,INTENT(IN) :: NX,NY
       DOUBLE PRECISION,INTENT(IN) :: DLAMBDA(NX,NY)
       INTEGER,INTENT(OUT) :: RND(NX,NY)
-      INTEGER :: K(NX,NY),FLAG(NX,NY)
+      INTEGER :: K(NX,NY),FLAG(NX,NY),X,Y
       DOUBLE PRECISION :: DL(NX,NY),DP(NX,NY),DU(NX,NY)
       DL=DEXP(-1.0D0 * DLAMBDA)
       K=0
@@ -13,7 +13,16 @@
         K = K + FLAG
         CALL RANDOM_NUMBER(DU)
         DP = DP * DU
-        FLAG = IDNINT(-1.0D0*DSIGN(0.5D0,DL-DP)+0.5D0)
+        DO X=1,NX
+          DO Y=1,NY
+            IF(DP(X,Y) .LE. DL(X,Y)) THEN
+              FLAG(X,Y)=0
+            ELSE
+              FLAG(X,Y)=1
+            END IF
+          END DO
+        END DO
+C        FLAG = IDNINT(-1.0D0*DSIGN(0.5D0,DL-DP)+0.5D0)
         IF (SUM(FLAG) .LE. 0) THEN
           write(*,*) sum(flag)
           EXIT

@@ -1,24 +1,25 @@
-      SUBROUTINE ADDNOISE(DLAMBDA)
+      SUBROUTINE POISSRNDM(NX,NY,DLAMBDA,RND)
       IMPLICIT NONE
-      INTEGER :: POISSRND
-      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA
-      INTEGER :: K
-      DOUBLE PRECISION :: DL,DP,DU
-
+      INTEGER,INTENT(IN) :: NX,NY
+      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA(NX,NY)
+      INTEGER,INTENT(OUT) :: RND(NX,NY)
+      INTEGER :: K(NX,NY),FLAG(NX,NY)
+      DOUBLE PRECISION :: DL(NX,NY),DP(NX,NY),DU(NX,NY)
       DL=DEXP(-1.0D0 * DLAMBDA)
       K=0
       DP=1.0D0
       DO
-        K = K + 1
+        K = K + FLAG
         CALL RANDOM_NUMBER(DU)
         DP = DP * DU
-        IF (DP .LE. DL) THEN
+        FLAG = IDNINT(DSIGN(0.5D0,DP-DL)+0.5D0)
+        IF (SUM(FLAG) .LE. 0) THEN
           EXIT
         END IF
       END DO
-      POISSRND = K - 1
+      RND = K - 1
       RETURN
-      END SUBROUTINE POISSRND
+      END SUBROUTINE POISSRNDM
 C ******************************************************************************
       FUNCTION POISSRND(DLAMBDA)
       IMPLICIT NONE

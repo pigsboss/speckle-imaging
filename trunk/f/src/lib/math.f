@@ -8,6 +8,7 @@
       DL=DEXP(-1.0D0 * DLAMBDA)
       K=0
       DP=1.0D0
+      FLAG=1
       DO
         K = K + FLAG
         CALL RANDOM_NUMBER(DU)

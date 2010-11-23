@@ -1,56 +1,15 @@
-      SUBROUTINE POISSRNDM(NX,NY,DLAMBDA,RND)
+      FUNCTION NORMRND(NX,NY,DMU,DSIGMA)
       IMPLICIT NONE
-      INTEGER,INTENT(IN) :: NX,NY
-      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA(NX,NY)
-      INTEGER,INTENT(OUT) :: RND(NX,NY)
-      INTEGER :: K(NX,NY),FLAG(NX,NY),X,Y
-      DOUBLE PRECISION :: DL(NX,NY),DP(NX,NY),DU(NX,NY)
-      DL=DEXP(-1.0D0 * DLAMBDA)
-      K=0
-      DP=1.0D0
-      FLAG=1
-      DO
-        K = K + FLAG
-        CALL RANDOM_NUMBER(DU)
-        DP = DP * DU
-        DO X=1,NX
-          DO Y=1,NY
-            IF(DP(X,Y) .LE. DL(X,Y)) THEN
-              FLAG(X,Y)=0
-            ELSE
-              FLAG(X,Y)=1
-            END IF
-          END DO
-        END DO
-C        FLAG = IDNINT(-1.0D0*DSIGN(0.5D0,DL-DP)+0.5D0)
-        IF (SUM(FLAG) .LE. 0) THEN
-          EXIT
-        END IF
-      END DO
-      RND = K - 1
+      INTEGER, INTENT(IN) :: NX,NY
+      DOUBLE PRECISION, INTENT(IN) :: DMU(NX,NY),DSIGMA(NX,NY)
+      DOUBLE PRECISION :: NORMRND(NX,NY)
+      DOUBLE PRECISION, PARAMETER :: PI=3.14159265358979323846D0
+      DOUBLE PRECISION :: DU(NX,NY),DV(NX,NY)
+      CALL RANDOM_NUMBER(DU)
+      CALL RANDOM_NUMBER(DV)
+      NORMRND=DSQRT(-2.0D0*DLOG(DU))*DCOS(2.0D0*PI*DV)*DSIGMA+DMU
       RETURN
-      END SUBROUTINE POISSRNDM
-C ******************************************************************************
-      FUNCTION POISSRND(DLAMBDA)
-      IMPLICIT NONE
-      INTEGER :: POISSRND
-      DOUBLE PRECISION,INTENT(IN) :: DLAMBDA
-      INTEGER :: K
-      DOUBLE PRECISION :: DL,DP,DU
-      DL=DEXP(-1.0D0 * DLAMBDA)
-      K=0
-      DP=1.0D0
-      DO
-        K = K + 1
-        CALL RANDOM_NUMBER(DU)
-        DP = DP * DU
-        IF (DP .LE. DL) THEN
-          EXIT
-        END IF
-      END DO
-      POISSRND = K - 1
-      RETURN
-      END FUNCTION POISSRND
+      END FUNCTION NORMRND
 C ******************************************************************************
       SUBROUTINE INIT_RANDOM_SEED()
       IMPLICIT NONE

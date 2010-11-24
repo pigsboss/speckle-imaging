@@ -398,7 +398,7 @@ C
       RETURN
       END SUBROUTINE KALMANITERATIVESHIFTADD
 C ******************************************************************************
-      SUBROUTINE DECONVRL(NX,NY,DG,DH,NUMIT,DBGL,DF)
+      SUBROUTINE DECONVML(NX,NY,DG,DH,NUMIT,DBGL,DF)
       IMPLICIT NONE
       INCLUDE 'fftw3.f'
       INTEGER, INTENT(IN) :: NX,NY,NUMIT

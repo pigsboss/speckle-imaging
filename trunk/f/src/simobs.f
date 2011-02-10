@@ -179,7 +179,11 @@ C    ====================================
           CALL ZFFTSHIFT(NAXES(1),NAXES(2),ZOUT)
           DOBS=ZABS(ZOUT)/DSQRT(DBLE(NAXES(1)*NAXES(2)))
           IF (SIMNOISE) THEN
-            DOBS=DABS(NORMRND(NAXES(1),NAXES(2),DOBS,DSQRT(DOBS)))
+            DO X=1,NAXES(1)
+              DO Y=1,NAXES(2)
+C               DOBS(X,Y)=POISSRND(DOBS(X,Y)+DBGL)
+              END DO
+            END DO
           END IF
           CALL APPENDIMAGE(TRIM(PREFIX)//'_sim_obs.fits',
      &      (/1,1,(K+1)/2/),(/NAXES(1),NAXES(2),(K+1)/2/),DOBS)

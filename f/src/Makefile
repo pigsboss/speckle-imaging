@@ -2,7 +2,7 @@ CFLAGS=-L/usr/local/lib -L/usr/lib -L/home/azzuro/usr/lib -I/usr/local/include -
 
 ALL=ffc subimage bgfit bgcut average si center ssa snr deconvwnr isa deconvclean bispostest sm spetoimg imgtospe fftshift ifftshift smtest kisa deconvklm defringe imagesc rffm fitsinfo bmptofits simobs
 
-COPTIONS=-O3
+COPTIONS=-O3 -Wall -mtune=core2
 
 all: $(ALL)
 

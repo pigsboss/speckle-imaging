@@ -1493,6 +1493,8 @@ C  ===========
      &    PX,PY,DTPSD)
       END IF
       CALL DFFTSHIFT(NAXES(1),NAXES(2),DTPSD)
+      PRINT *, 'DEBUG'
+      PRINT *, TRIM(PREFIX),PX,PY,SUM(DTPSD)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_tgabs.fits',
      &  (/1,1,1/),(/PX,PY,1/),DSQRT(DTPSD))
       PRINT *,'spectral amplitude of target: '//
@@ -1593,10 +1595,10 @@ C  ===========
       IF (INFO .EQ. 0)THEN
         PRINT *,'DFFTW_IMPORT_SYSTEM_WISDOM failed.'
       END IF
-C     PRINT *,'Start planning.'
+c     PRINT *,'Start planning.'
       CALL DFFTW_PLAN_DFT_2D(PLAN,DX,DY,ZIN,ZOUT,-1,
      &  FFTW_MEASURE+FFTW_DESTROY_INPUT)
-C     PRINT *,'Finished planning.'
+c     PRINT *,'Finished planning.'
       DPSD=DBLE(0)
       DO K=1,NBUF
         L1=(K-1)*LBUF+1

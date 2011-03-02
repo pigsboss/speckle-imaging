@@ -38,6 +38,7 @@ C
         PRINT *,'======'
         PRINT *,'si filename_target filename_reference '//
      &    '[-target-range=m,n] [-ref-range=m,n] [-prefix=...]'
+        STOP
       END IF
       PX=0
       PY=0
@@ -56,9 +57,9 @@ C
       PY=INT(IDNINT(
      &  DEXP(DLOG(2.0D0)*CEILING(DLOG(DBLE(PY))/DLOG(2.0D0)))))
       CALL RESOLVEPATH(TFILE,BASENAME,EXTNAME)
-      PREFIX=BASENAME
+      PREFIX=TRIM(BASENAME)
       CALL RESOLVEPATH(RFILE,BASENAME,EXTNAME)
-      PREFIX=PREFIX//'_'//BASENAME//'_si'
+      PREFIX=TRIM(PREFIX)//'_'//TRIM(BASENAME)//'_si'
       DO K=3,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-target-range=').GT.0)THEN

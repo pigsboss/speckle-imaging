@@ -312,7 +312,7 @@ C  Update measurements:
             CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
             DACF=ZABS(ZOUT)
             XM=MAXLOC(MAXVAL(DACF,2),1)
-            YM=MAXLOC(MAXVAL(DACF,1),2)
+            YM=MAXLOC(MAXVAL(DACF,1),1)
             IF(NAXES(1)-XM .GT. XM-1)THEN
               XM=XM-1
             ELSE
@@ -339,7 +339,7 @@ C  Update measurements:
         END IF
         DMES=DTMP
         XM=MAXLOC(MAXVAL(DTMP,2),1)
-        YM=MAXLOC(MAXVAL(DTMP,1),2)
+        YM=MAXLOC(MAXVAL(DTMP,1),1)
         DTMP=EOSHIFT(EOSHIFT(DTMP,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
         CALL WRITEIMAGE(TRIM(PREFIX)//'_'//TRIM(NUMSTR)//'_mes.fits',
      &    (/1,1,1/),(/NAXES(1),NAXES(2),1/),DTMP)
@@ -1307,7 +1307,7 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
               CALL DFFTW_EXECUTE_DFT(PLANB,ZIN,ZOUT)
               DCORR=DBLE(ZOUT)
               XM=MAXLOC(MAXVAL(DCORR,2),1)
-              YM=MAXLOC(MAXVAL(DCORR,1),2)
+              YM=MAXLOC(MAXVAL(DCORR,1),1)
               IF(NAXES(1)-XM .GT. XM-1)THEN
                 XM=XM-1
               ELSE
@@ -1327,7 +1327,7 @@ C     DEST=DEST*DBLE(NAXES(1)*NAXES(2))/SUM(DEST)
         END DO
         DIMG=DIMG/DBLE(NFRAMES)
         XM=MAXLOC(MAXVAL(DIMG,2),1)
-        YM=MAXLOC(MAXVAL(DIMG,1),2)
+        YM=MAXLOC(MAXVAL(DIMG,1),1)
         DIMG=EOSHIFT(EOSHIFT(DIMG,XM-XC,0.0D0,1),YM-YC,0.0D0,2)
         DIMG=DIMG*(DSUM/SUM(DIMG))
         CALL WRITEIMAGE(TRIM(PREFIX)//'_isa_'//TRIM(NUMSTR)//
@@ -1423,7 +1423,7 @@ C ******************************************************************************
           DO L=1,L2+1-L1
             NFRAMES=NFRAMES+1
             XM=MAXLOC(MAXVAL(DBUF(:,:,L),2),1)
-            YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),2)
+            YM=MAXLOC(MAXVAL(DBUF(:,:,L),1),1)
             WRITE(*,'(A,I5,A,I3,A,I3,A)')' maximum location ',
      &        NFRAMES,': (',XM,', ',YM,')'
             DIMG=DIMG+EOSHIFT(EOSHIFT(DBUF(:,:,L),
@@ -1493,8 +1493,6 @@ C  ===========
      &    PX,PY,DTPSD)
       END IF
       CALL DFFTSHIFT(NAXES(1),NAXES(2),DTPSD)
-      PRINT *, 'DEBUG'
-      PRINT *, TRIM(PREFIX),PX,PY,SUM(DTPSD)
       CALL WRITEIMAGE(TRIM(PREFIX)//'_tgabs.fits',
      &  (/1,1,1/),(/PX,PY,1/),DSQRT(DTPSD))
       PRINT *,'spectral amplitude of target: '//
@@ -1630,7 +1628,8 @@ C ******************************************************************************
       XC=INT(CEILING(0.5*DBLE(NX+1)))
       YC=INT(CEILING(0.5*DBLE(NY+1)))
       X=MAXLOC(MAXVAL(DH,2),1)
-      Y=MAXLOC(MAXVAL(DH,1),2)
+      Y=MAXLOC(MAXVAL(DH,1),1)
+C     Y=MAXLOC(MAXVAL(DH,1),2)
       DPSF=EOSHIFT(EOSHIFT(DH,Y-YC,0.0D0,2),X-XC,0.0D0,1)
       DPSF=DPSF/SUM(DPSF)
       DRES=DG
@@ -1638,7 +1637,7 @@ C ******************************************************************************
       DO K=1,NUMIT
         L=L+1
         X=MAXLOC(MAXVAL(DRES,2),1)
-        Y=MAXLOC(MAXVAL(DRES,1),2)
+        Y=MAXLOC(MAXVAL(DRES,1),1)
         DF(X,Y)=DF(X,Y)+DRES(X,Y)*DBETA
         DTMP=EOSHIFT(EOSHIFT(DPSF,YC-Y,0.0D0,2),XC-X,0.0D0,1)
         DTMP=DTMP/SUM(DTMP)

@@ -50,7 +50,7 @@ C
           READ(ARG(INDEX(ARG,'-o=')+3:),*) CRCTFILE
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
-          RETURN
+          STOP
         END IF
       END DO
       WRITE(*,'(A)') ' target file: '//TRIM(TARGFILE)

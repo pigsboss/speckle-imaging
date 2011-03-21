@@ -3,7 +3,7 @@ C  Extract subimages.
 C
 C  Usage:
 C  ======
-C  subimage filename_img [-fpixels=n,n,n] [-lpixels=n,n,n] [-o=filename_sub]
+C  subimage filename_img [-s] [-fpixels=n,n,n] [-lpixels=n,n,n] [-o=filename_sub]
 C
 C  Purpose:
 C  ========
@@ -12,6 +12,7 @@ C  and write the output to file named filename_sub.
 C
 C  Arguments:
 C  ==========
+C  -s           - extract and split subimages.
 C  filename_img - input
 C  n,n,n        - integers
 C  filename_sub - output
@@ -19,6 +20,7 @@ C
       IMPLICIT NONE
       INTEGER :: FPIXELS(3),LPIXELS(3),NAXES(3),K,NARGS
       CHARACTER(LEN=256) :: IMGFILE,SUBFILE,ARG,BASENAME,EXTNAME
+      LOGICAL :: SPLIT
       INTERFACE
       SUBROUTINE IMAGESIZE(IMGFILE,NAXES)
       INTEGER, INTENT(OUT) :: NAXES(3)
@@ -33,6 +35,11 @@ C
       INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
       CHARACTER*(*), INTENT(IN) :: IMGFILE,SUBFILE
       END SUBROUTINE SUBIMAGE
+      SUBROUTINE SPLITIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE,BUFFERSIZE)
+      INTEGER, INTENT(IN) :: FPIXELS(3),LPIXELS(3)
+      INTEGER, OPTIONAL, INTENT(INOUT) :: BUFFERSIZE
+      CHARACTER*(*), INTENT(IN) :: IMGFILE,SUBFILE
+      END SUBROUTINE SPLITIMAGE
       END INTERFACE
       NARGS=COMMAND_ARGUMENT_COUNT()
       CALL GET_COMMAND_ARGUMENT(1,IMGFILE)
@@ -41,6 +48,7 @@ C
       LPIXELS=NAXES
       CALL RESOLVEPATH(IMGFILE,BASENAME,EXTNAME)
       SUBFILE=TRIM(BASENAME)//'_sub.fits'
+      SPLIT=.FALSE.
       DO K=2,NARGS
         CALL GET_COMMAND_ARGUMENT(K,ARG)
         IF(INDEX(ARG,'-fpixels=').GT.0)THEN
@@ -51,9 +59,11 @@ C
      &      LPIXELS(1),LPIXELS(2),LPIXELS(3)
         ELSE IF(INDEX(ARG,'-o=').GT.0)THEN
           SUBFILE=ARG(INDEX(ARG,'-o=')+3:)
+        ELSE IF(INDEX(ARG,'-s').GT.0)THEN
+          SPLIT=.TRUE.
         ELSE
           PRINT *,'Unknown argument '//TRIM(ARG)
-          RETURN
+          STOP
         END IF
       END DO
       WRITE(*,'(A)') ' input: '//TRIM(IMGFILE)
@@ -63,6 +73,12 @@ C
      &  LPIXELS(1)-FPIXELS(1)+1,' x',LPIXELS(2)-FPIXELS(2)+1
       WRITE(*,'(A,I5,A,I5)') ' from ',FPIXELS(3),
      &  ' to ',LPIXELS(3)
-      CALL SUBIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE)
+      IF(SPLIT)THEN
+        PRINT *,'Extract subimages into split files.'
+        CALL SPLITIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE)
+      ELSE
+        PRINT *,'Extract subimages into a single file.'
+        CALL SUBIMAGE(IMGFILE,FPIXELS,LPIXELS,SUBFILE)
+      END IF
       STOP
       END PROGRAM MAIN
